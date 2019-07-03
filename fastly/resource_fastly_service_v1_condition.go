@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var conditionSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -30,4 +33,28 @@ var conditionSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenConditions(conditionList []*fastly.Condition) []map[string]interface{} {
+	var cl []map[string]interface{}
+	for _, c := range conditionList {
+		// Convert Conditions to a map for saving to state.
+		nc := map[string]interface{}{
+			"name":      c.Name,
+			"statement": c.Statement,
+			"type":      c.Type,
+			"priority":  c.Priority,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nc {
+			if v == "" {
+				delete(nc, k)
+			}
+		}
+
+		cl = append(cl, nc)
+	}
+
+	return cl
 }

@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var blobstoragelogging = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -92,4 +95,38 @@ var blobstoragelogging = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenBlobStorages(blobStorageList []*fastly.BlobStorage) []map[string]interface{} {
+	var bsl []map[string]interface{}
+	for _, bs := range blobStorageList {
+		// Convert Blob Storages to a map for saving to state.
+		nbs := map[string]interface{}{
+			"name":               bs.Name,
+			"path":               bs.Path,
+			"account_name":       bs.AccountName,
+			"container":          bs.Container,
+			"sas_token":          bs.SASToken,
+			"period":             bs.Period,
+			"timestamp_format":   bs.TimestampFormat,
+			"gzip_level":         bs.GzipLevel,
+			"public_key":         bs.PublicKey,
+			"format":             bs.Format,
+			"format_version":     bs.FormatVersion,
+			"message_type":       bs.MessageType,
+			"placement":          bs.Placement,
+			"response_condition": bs.ResponseCondition,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nbs {
+			if v == "" {
+				delete(nbs, k)
+			}
+		}
+
+		bsl = append(bsl, nbs)
+	}
+
+	return bsl
 }

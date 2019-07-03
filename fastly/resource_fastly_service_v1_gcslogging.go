@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var gcsloggingSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -81,4 +84,36 @@ var gcsloggingSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenGCS(gcsList []*fastly.GCS) []map[string]interface{} {
+	var GCSList []map[string]interface{}
+	for _, currentGCS := range gcsList {
+		// Convert gcs to a map for saving to state.
+		GCSMapString := map[string]interface{}{
+			"name":               currentGCS.Name,
+			"email":              currentGCS.User,
+			"bucket_name":        currentGCS.Bucket,
+			"secret_key":         currentGCS.SecretKey,
+			"path":               currentGCS.Path,
+			"period":             int(currentGCS.Period),
+			"gzip_level":         int(currentGCS.GzipLevel),
+			"response_condition": currentGCS.ResponseCondition,
+			"message_type":       currentGCS.MessageType,
+			"format":             currentGCS.Format,
+			"timestamp_format":   currentGCS.TimestampFormat,
+			"placement":          currentGCS.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range GCSMapString {
+			if v == "" {
+				delete(GCSMapString, k)
+			}
+		}
+
+		GCSList = append(GCSList, GCSMapString)
+	}
+
+	return GCSList
 }

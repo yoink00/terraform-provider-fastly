@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var directorSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -57,4 +60,40 @@ var directorSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenDirectors(directorList []*fastly.Director, directorBackendList []*fastly.DirectorBackend) []map[string]interface{} {
+	var dl []map[string]interface{}
+	for _, d := range directorList {
+		// Convert Director to a map for saving to state.
+		nd := map[string]interface{}{
+			"name":     d.Name,
+			"comment":  d.Comment,
+			"shield":   d.Shield,
+			"type":     d.Type,
+			"quorum":   int(d.Quorum),
+			"capacity": int(d.Capacity),
+			"retries":  int(d.Retries),
+		}
+
+		var b []interface{}
+		for _, db := range directorBackendList {
+			if d.Name == db.Director {
+				b = append(b, db.Backend)
+			}
+		}
+		if len(b) > 0 {
+			nd["backends"] = schema.NewSet(schema.HashString, b)
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nd {
+			if v == "" {
+				delete(nd, k)
+			}
+		}
+
+		dl = append(dl, nd)
+	}
+	return dl
 }

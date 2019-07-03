@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var healthcheckSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -74,4 +77,35 @@ var healthcheckSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenHealthchecks(healthcheckList []*fastly.HealthCheck) []map[string]interface{} {
+	var hl []map[string]interface{}
+	for _, h := range healthcheckList {
+		// Convert HealthChecks to a map for saving to state.
+		nh := map[string]interface{}{
+			"name":              h.Name,
+			"host":              h.Host,
+			"path":              h.Path,
+			"check_interval":    h.CheckInterval,
+			"expected_response": h.ExpectedResponse,
+			"http_version":      h.HTTPVersion,
+			"initial":           h.Initial,
+			"method":            h.Method,
+			"threshold":         h.Threshold,
+			"timeout":           h.Timeout,
+			"window":            h.Window,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nh {
+			if v == "" {
+				delete(nh, k)
+			}
+		}
+
+		hl = append(hl, nh)
+	}
+
+	return hl
 }

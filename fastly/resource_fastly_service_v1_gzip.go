@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+	"strings"
+)
 
 var gzipSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -34,4 +38,44 @@ var gzipSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenGzips(gzipsList []*fastly.Gzip) []map[string]interface{} {
+	var gl []map[string]interface{}
+	for _, g := range gzipsList {
+		// Convert Gzip to a map for saving to state.
+		ng := map[string]interface{}{
+			"name":            g.Name,
+			"cache_condition": g.CacheCondition,
+		}
+
+		if g.Extensions != "" {
+			e := strings.Split(g.Extensions, " ")
+			var et []interface{}
+			for _, ev := range e {
+				et = append(et, ev)
+			}
+			ng["extensions"] = schema.NewSet(schema.HashString, et)
+		}
+
+		if g.ContentTypes != "" {
+			c := strings.Split(g.ContentTypes, " ")
+			var ct []interface{}
+			for _, cv := range c {
+				ct = append(ct, cv)
+			}
+			ng["content_types"] = schema.NewSet(schema.HashString, ct)
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ng {
+			if v == "" {
+				delete(ng, k)
+			}
+		}
+
+		gl = append(gl, ng)
+	}
+
+	return gl
 }

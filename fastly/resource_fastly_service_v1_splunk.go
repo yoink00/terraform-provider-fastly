@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var splunkSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -52,4 +55,31 @@ var splunkSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenSplunks(splunkList []*fastly.Splunk) []map[string]interface{} {
+	var sl []map[string]interface{}
+	for _, s := range splunkList {
+		// Convert Splunk to a map for saving to state.
+		nbs := map[string]interface{}{
+			"name":               s.Name,
+			"url":                s.URL,
+			"format":             s.Format,
+			"format_version":     s.FormatVersion,
+			"response_condition": s.ResponseCondition,
+			"placement":          s.Placement,
+			"token":              s.Token,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nbs {
+			if v == "" {
+				delete(nbs, k)
+			}
+		}
+
+		sl = append(sl, nbs)
+	}
+
+	return sl
 }

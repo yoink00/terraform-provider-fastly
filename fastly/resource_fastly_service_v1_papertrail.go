@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var papertrailSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -44,4 +47,30 @@ var papertrailSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenPapertrails(papertrailList []*fastly.Papertrail) []map[string]interface{} {
+	var pl []map[string]interface{}
+	for _, p := range papertrailList {
+		// Convert Papertrails to a map for saving to state.
+		ns := map[string]interface{}{
+			"name":               p.Name,
+			"address":            p.Address,
+			"port":               p.Port,
+			"format":             p.Format,
+			"response_condition": p.ResponseCondition,
+			"placement":          p.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ns {
+			if v == "" {
+				delete(ns, k)
+			}
+		}
+
+		pl = append(pl, ns)
+	}
+
+	return pl
 }

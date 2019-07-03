@@ -1,6 +1,9 @@
 package fastly
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 var logentriesSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -58,4 +61,32 @@ var logentriesSchema = &schema.Schema{
 			},
 		},
 	},
+}
+
+func flattenLogentries(logentriesList []*fastly.Logentries) []map[string]interface{} {
+	var LEList []map[string]interface{}
+	for _, currentLE := range logentriesList {
+		// Convert Logentries to a map for saving to state.
+		LEMapString := map[string]interface{}{
+			"name":               currentLE.Name,
+			"port":               currentLE.Port,
+			"use_tls":            currentLE.UseTLS,
+			"token":              currentLE.Token,
+			"format":             currentLE.Format,
+			"format_version":     currentLE.FormatVersion,
+			"response_condition": currentLE.ResponseCondition,
+			"placement":          currentLE.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range LEMapString {
+			if v == "" {
+				delete(LEMapString, k)
+			}
+		}
+
+		LEList = append(LEList, LEMapString)
+	}
+
+	return LEList
 }
