@@ -49,7 +49,6 @@ func processWAF(d *schema.ResourceData, conn *gofastly.Client, v int) error {
 		}
 
 		log.Printf("[DEBUG] Fastly WAF update opts: %#v", opts)
-
 		// check if WAF exists first
 		if !wAFExists(conn, gofastly.GetWAFInput{
 			Version: serviceVersion,
@@ -74,19 +73,16 @@ func processWAF(d *schema.ResourceData, conn *gofastly.Client, v int) error {
 			return err
 		}
 
-		log.Printf("[DEBUG] Fastly WAF addition opts: %#v", opts)
 		if err := createWAF(wf, conn, opts); err != nil {
 			return err
 		}
 
 	} else if len(oldWAFVal.([]interface{})) > 0 {
-
-		log.Printf("[DEBUG] deleting WAF")
-		df := oldWAFVal.([]interface{})[0].(map[string]interface{})
+		wf := oldWAFVal.([]interface{})[0].(map[string]interface{})
 
 		opts := gofastly.DeleteWAFInput{
 			Version: serviceVersion,
-			ID:      df["waf_id"].(string),
+			ID:      wf["waf_id"].(string),
 		}
 
 		log.Printf("[DEBUG] Fastly WAF Removal opts: %#v", opts)
