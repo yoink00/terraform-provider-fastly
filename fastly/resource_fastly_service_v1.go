@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -3669,8 +3668,8 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 		// refresh WAFs
 		log.Printf("[DEBUG] Refreshing WAFs for (%s)", d.Id())
 		wafList, err := conn.ListWAFs(&gofastly.ListWAFsInput{
-			Service: d.Id(),
-			Version: strconv.Itoa(s.ActiveVersion.Number),
+			FilterService: d.Id(),
+			FilterVersion: s.ActiveVersion.Number,
 		})
 		if err != nil {
 			return fmt.Errorf("[ERR] Error looking up WAFs for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)

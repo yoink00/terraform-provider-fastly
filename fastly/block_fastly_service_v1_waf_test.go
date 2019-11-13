@@ -160,8 +160,8 @@ func testAccCheckFastlyServiceV1DeletedWAF(service *gofastly.ServiceDetail) reso
 
 		conn := testAccProvider.Meta().(*FastlyClient).conn
 		wafs, err := conn.ListWAFs(&gofastly.ListWAFsInput{
-			Service: service.ID,
-			Version: strconv.Itoa(service.ActiveVersion.Number),
+			FilterService: service.ID,
+			FilterVersion: service.ActiveVersion.Number,
 		})
 		if err != nil {
 			return err
@@ -183,8 +183,8 @@ func testAccCheckFastlyServiceV1AttributesWAF(service *gofastly.ServiceDetail, n
 
 		conn := testAccProvider.Meta().(*FastlyClient).conn
 		wafs, err := conn.ListWAFs(&gofastly.ListWAFsInput{
-			Service: service.ID,
-			Version: strconv.Itoa(service.ActiveVersion.Number),
+			FilterService: service.ID,
+			FilterVersion: service.ActiveVersion.Number,
 		})
 
 		waf, err := conn.GetWAF(&gofastly.GetWAFInput{
