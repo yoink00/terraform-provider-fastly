@@ -9,7 +9,7 @@ import (
 )
 
 // WAFSchema the WAF block schema
-var WAFSchema = &schema.Schema{
+var wafSchema = &schema.Schema{
 	Type:     schema.TypeList,
 	Optional: true,
 	MaxItems: 1,
@@ -50,7 +50,7 @@ func processWAF(d *schema.ResourceData, conn *gofastly.Client, v int) error {
 
 		log.Printf("[DEBUG] Fastly WAF update opts: %#v", copts)
 		// check if WAF exists first
-		if !wAFExists(conn, gofastly.GetWAFInput{
+		if !wafExists(conn, gofastly.GetWAFInput{
 			Version: serviceVersion,
 			Service: serviceID,
 			ID:      wf["waf_id"].(string),
@@ -114,7 +114,7 @@ func createWAF(df map[string]interface{}, conn *gofastly.Client, i *gofastly.Cre
 	return nil
 }
 
-func wAFExists(conn *gofastly.Client, i gofastly.GetWAFInput) bool {
+func wafExists(conn *gofastly.Client, i gofastly.GetWAFInput) bool {
 
 	_, err := conn.GetWAF(&i)
 	if err != nil {
@@ -158,8 +158,8 @@ func buildCreateWAF(WAFMap interface{}, serviceID string, ServiceVersion string)
 	return &opts, nil
 }
 
-func buildUpdateWAF(WAFMap interface{}, serviceID string, ServiceVersion string) (*gofastly.UpdateWAFInput, error) {
-	df := WAFMap.(map[string]interface{})
+func buildUpdateWAF(wafMap interface{}, serviceID string, ServiceVersion string) (*gofastly.UpdateWAFInput, error) {
+	df := wafMap.(map[string]interface{})
 	opts := gofastly.UpdateWAFInput{
 		Service:           serviceID,
 		Version:           ServiceVersion,

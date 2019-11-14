@@ -1472,7 +1472,7 @@ func resourceServiceV1() *schema.Resource {
 					},
 				},
 			},
-			"waf": WAFSchema,
+			"waf": wafSchema,
 		},
 	}
 }
@@ -3194,50 +3194,6 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	return resourceServiceV1Read(d, meta)
-}
-
-func deleteResponses(responsesToDelete []interface{}, conn *gofastly.Client, serviceID string, serviceVersion int) error {
-	for _, rRaw := range responsesToDelete {
-		rf := rRaw.(map[string]interface{})
-		opts := gofastly.DeleteResponseObjectInput{
-			Service: serviceID,
-			Version: serviceVersion,
-			Name:    rf["name"].(string),
-		}
-
-		log.Printf("[DEBUG] Fastly Response Object removal opts: %#v", opts)
-		err := conn.DeleteResponseObject(&opts)
-		if errRes, ok := err.(*gofastly.HTTPError); ok {
-			if errRes.StatusCode != 404 {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func deleteConditions(conditionsToRemove []interface{}, conn *gofastly.Client, serviceID string, serviceVersion int) error {
-	for _, cRaw := range conditionsToRemove {
-		cf := cRaw.(map[string]interface{})
-		opts := gofastly.DeleteConditionInput{
-			Service: serviceID,
-			Version: serviceVersion,
-			Name:    cf["name"].(string),
-		}
-
-		log.Printf("[DEBUG] Fastly Conditions Removal opts: %#v", opts)
-		err := conn.DeleteCondition(&opts)
-		if errRes, ok := err.(*gofastly.HTTPError); ok {
-			if errRes.StatusCode != 404 {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
