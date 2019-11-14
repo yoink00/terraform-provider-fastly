@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 
@@ -40,48 +41,22 @@ func processWAF(d *schema.ResourceData, conn *gofastly.Client, v int) error {
 	serviceVersion := strconv.Itoa(v)
 	oldWAFVal, newWAFVal := d.GetChange("waf")
 
-	if len(oldWAFVal.([]interface{})) > 0 && len(newWAFVal.([]interface{})) > 0 {
+	if len(newWAFVal.([]interface{})) > 0 {
 		wf := newWAFVal.([]interface{})[0].(map[string]interface{})
-		copts, err := buildCreateWAF(wf, serviceID, serviceVersion)
-		if err != nil {
-			log.Printf("[DEBUG] Error building create WAF input: %s", err)
-			return err
-		}
-
-		log.Printf("[DEBUG] Fastly WAF update opts: %#v", copts)
-		// check if WAF exists first
-		if !wafExists(conn, gofastly.GetWAFInput{
-			Version: serviceVersion,
-			Service: serviceID,
-			ID:      wf["waf_id"].(string),
-		}) {
-			log.Printf("[WARN] WAF not found, creating one with update opts: %#v", copts)
-			if err := createWAF(wf, conn, copts); err != nil {
+		if !wafExists(conn, serviceID, serviceVersion, wf["waf_id"].(string)) {
+			opts := buildCreateWAF(wf, serviceID, serviceVersion)
+			log.Printf("[WARN] WAF not found, creating one with update opts: %#v", opts)
+			if err := createWAF(wf, conn, opts); err != nil {
+				return err
+			}
+		} else {
+			opts := buildUpdateWAF(wf, serviceID, serviceVersion)
+			log.Printf("[DEBUG] Fastly WAF update opts: %#v", opts)
+			_, err := conn.UpdateWAF(opts)
+			if err != nil {
 				return err
 			}
 		}
-		uopts, err := buildUpdateWAF(wf, serviceID, serviceVersion)
-		if err != nil {
-			log.Printf("[DEBUG] Error building update WAF input: %s", err)
-			return err
-		}
-		_, err = conn.UpdateWAF(uopts)
-		if err != nil {
-			return err
-		}
-
-	} else if len(newWAFVal.([]interface{})) > 0 {
-		wf := newWAFVal.([]interface{})[0].(map[string]interface{})
-		opts, err := buildCreateWAF(wf, serviceID, serviceVersion)
-		if err != nil {
-			log.Printf("[DEBUG] Error building WAF: %s", err)
-			return err
-		}
-
-		if err := createWAF(wf, conn, opts); err != nil {
-			return err
-		}
-
 	} else if len(oldWAFVal.([]interface{})) > 0 {
 		wf := oldWAFVal.([]interface{})[0].(map[string]interface{})
 
@@ -89,7 +64,6 @@ func processWAF(d *schema.ResourceData, conn *gofastly.Client, v int) error {
 			Version: serviceVersion,
 			ID:      wf["waf_id"].(string),
 		}
-
 		log.Printf("[DEBUG] Fastly WAF Removal opts: %#v", opts)
 		err := conn.DeleteWAF(&opts)
 		if errRes, ok := err.(*gofastly.HTTPError); ok {
@@ -99,6 +73,25 @@ func processWAF(d *schema.ResourceData, conn *gofastly.Client, v int) error {
 		} else if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readWAF(conn *gofastly.Client, d *schema.ResourceData, s *gofastly.ServiceDetail) error {
+	// refresh WAFs
+	log.Printf("[DEBUG] Refreshing WAFs for (%s)", d.Id())
+	wafList, err := conn.ListWAFs(&gofastly.ListWAFsInput{
+		FilterService: d.Id(),
+		FilterVersion: s.ActiveVersion.Number,
+	})
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up WAFs for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	waf := flattenWAFs(wafList.Items)
+
+	if err := d.Set("waf", waf); err != nil {
+		log.Printf("[WARN] Error setting waf for (%s): %s", d.Id(), err)
 	}
 	return nil
 }
@@ -114,9 +107,13 @@ func createWAF(df map[string]interface{}, conn *gofastly.Client, i *gofastly.Cre
 	return nil
 }
 
-func wafExists(conn *gofastly.Client, i gofastly.GetWAFInput) bool {
+func wafExists(conn *gofastly.Client, s, v, id string) bool {
 
-	_, err := conn.GetWAF(&i)
+	_, err := conn.GetWAF(&gofastly.GetWAFInput{
+		Service: s,
+		Version: v,
+		ID:      id,
+	})
 	if err != nil {
 		return false
 	}
@@ -146,7 +143,7 @@ func flattenWAFs(wafList []*gofastly.WAF) []map[string]interface{} {
 	return append(wl, WAFMapString)
 }
 
-func buildCreateWAF(WAFMap interface{}, serviceID string, ServiceVersion string) (*gofastly.CreateWAFInput, error) {
+func buildCreateWAF(WAFMap interface{}, serviceID string, ServiceVersion string) *gofastly.CreateWAFInput {
 	df := WAFMap.(map[string]interface{})
 	opts := gofastly.CreateWAFInput{
 		Service:           serviceID,
@@ -155,10 +152,10 @@ func buildCreateWAF(WAFMap interface{}, serviceID string, ServiceVersion string)
 		PrefetchCondition: df["prefetch_condition"].(string),
 		Response:          df["response_object"].(string),
 	}
-	return &opts, nil
+	return &opts
 }
 
-func buildUpdateWAF(wafMap interface{}, serviceID string, ServiceVersion string) (*gofastly.UpdateWAFInput, error) {
+func buildUpdateWAF(wafMap interface{}, serviceID string, ServiceVersion string) *gofastly.UpdateWAFInput {
 	df := wafMap.(map[string]interface{})
 	opts := gofastly.UpdateWAFInput{
 		Service:           serviceID,
@@ -167,5 +164,5 @@ func buildUpdateWAF(wafMap interface{}, serviceID string, ServiceVersion string)
 		PrefetchCondition: df["prefetch_condition"].(string),
 		Response:          df["response_object"].(string),
 	}
-	return &opts, nil
+	return &opts
 }

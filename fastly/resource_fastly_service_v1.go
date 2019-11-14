@@ -3650,22 +3650,10 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			log.Printf("[WARN] Error setting Dictionary for (%s): %s", d.Id(), err)
 		}
 
-		// refresh WAFs
-		log.Printf("[DEBUG] Refreshing WAFs for (%s)", d.Id())
-		wafList, err := conn.ListWAFs(&gofastly.ListWAFsInput{
-			FilterService: d.Id(),
-			FilterVersion: s.ActiveVersion.Number,
-		})
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up WAFs for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		// refresh WAF
+		if err := readWAF(conn, d, s); err != nil {
+			return err
 		}
-
-		waf := flattenWAFs(wafList.Items)
-
-		if err := d.Set("waf", waf); err != nil {
-			log.Printf("[WARN] Error setting waf for (%s): %s", d.Id(), err)
-		}
-
 	} else {
 		log.Printf("[DEBUG] Active Version for Service (%s) is empty, no state to refresh", d.Id())
 	}
