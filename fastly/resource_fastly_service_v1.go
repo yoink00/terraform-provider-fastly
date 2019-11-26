@@ -1472,7 +1472,6 @@ func resourceServiceV1() *schema.Resource {
 					},
 				},
 			},
-			"waf": wafSchema,
 		},
 	}
 }
@@ -1547,7 +1546,6 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		"vcl",
 		"acl",
 		"dictionary",
-		"waf",
 	} {
 		if d.HasChange(v) {
 			needsChange = true
@@ -3149,13 +3147,6 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 			}
 		}
 
-		// Find differences in WAF.
-		if d.HasChange("waf") {
-			if err := processWAF(d, conn, latestVersion); err != nil {
-				return err
-			}
-		}
-
 		// validate version
 		log.Printf("[DEBUG] Validating Fastly Service (%s), Version (%v)", d.Id(), latestVersion)
 		valid, msg, err := conn.ValidateVersion(&gofastly.ValidateVersionInput{
@@ -3650,10 +3641,6 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			log.Printf("[WARN] Error setting Dictionary for (%s): %s", d.Id(), err)
 		}
 
-		// Refresh WAF.
-		if err := readWAF(conn, d, s); err != nil {
-			return err
-		}
 	} else {
 		log.Printf("[DEBUG] Active Version for Service (%s) is empty, no state to refresh", d.Id())
 	}
