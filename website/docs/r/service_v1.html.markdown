@@ -153,6 +153,45 @@ resource "fastly_service_v1" "demo" {
 }
 ```
 
+Basic usage with [Web Application Firewall](https://docs.fastly.com/api/config#director):
+
+```hcl
+resource "fastly_service_v1" "demo" {
+  name = "demofastly"
+
+  domain {
+    name    = "demo.notexample.com"
+    comment = "demo"
+  }
+
+  backend {
+    address = "127.0.0.1"
+    name    = "origin1"
+    port    = 80
+  }
+
+  condition {
+    name      = "Waf_Prefetch"
+    type      = "PREFETCH"
+    statement = "req.url~+\"index.html\""
+  }
+
+  response_object {
+    name     = "WAF_Response"
+    status   = "403"
+    response = "Forbidden"
+    content  = "content2"
+  }
+
+  waf {
+    prefetch_condition = "Waf_Prefetch"
+    response_object    = "WAF_Response"
+  }
+
+  force_destroy = true
+}
+```
+
 -> **Note:** For an AWS S3 Bucket, the Backend address is
 `<domain>.s3-website-<region>.amazonaws.com`. The `default_host` attribute
 should be set to `<bucket_name>.s3-website-<region>.amazonaws.com`. See the
@@ -534,6 +573,11 @@ via API. Default is `false`. It is important to note that changing this attribut
 dictionary, discard the current items in the dictionary. Using a write-only/private dictionary should only be done if
 the items are managed outside of Terraform.
 
+The `waf` block supports:
+
+* `response_object` - (Required) A Web Application Firewall's (WAF) response object
+* `prefetch_condition` - (Required) A Web Application Firewall's (WAF) prefetch condition
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following attributes are exported:
@@ -553,6 +597,10 @@ The `acl` block exports:
 The `dictionary` block exports:
 
 * `dictionary_id` - The ID of the dictionary.
+
+The `waf` block exports:
+
+* `waf_id` - The ID of the waf.
 
 [fastly-s3]: https://docs.fastly.com/guides/integrations/amazon-s3
 [fastly-cname]: https://docs.fastly.com/guides/basic-setup/adding-cname-records
