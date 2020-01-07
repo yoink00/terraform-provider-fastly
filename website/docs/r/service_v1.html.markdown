@@ -171,7 +171,7 @@ resource "fastly_service_v1" "demo" {
   }
 
   condition {
-    name      = "Waf_Prefetch"
+    name      = "WAF_Prefetch"
     type      = "PREFETCH"
     statement = "req.url~+\"index.html\""
   }
@@ -180,11 +180,11 @@ resource "fastly_service_v1" "demo" {
     name     = "WAF_Response"
     status   = "403"
     response = "Forbidden"
-    content  = "content2"
+    content  = "content"
   }
 
   waf {
-    prefetch_condition = "Waf_Prefetch"
+    prefetch_condition = "WAF_Prefetch"
     response_object    = "WAF_Response"
   }
 
