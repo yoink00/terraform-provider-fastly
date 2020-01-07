@@ -13,50 +13,14 @@ Use this data source to get the [WAF rules][1] of Fastly.
 ## Simple Example Usage
 
 ```hcl
-variable "type_status" {
-  type = map(string)
-  default = {
-    score     = "score"
-    threshold = "log"
-    strict    = "log"
-  }
-}
 
-source "fastly_service_v1" "myservice" {
-  name = "demofastly"
-  domain {
-    name    = "demo.notexample.com"
-    comment = "demo"
-  }
-  backend {
-    address = "demo.notexample.com.s3-website-us-west-2.amazonaws.com"
-    name    = "AWS S3 hosting"
-    port    = 80
-  }
-  condition {
-    name      = "WAF_Prefetch"
-    type      = "PREFETCH"
-    statement = "req.url~+\"index.html\""
-  }
-  response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content2"
-  }
-  waf {
-    prefetch_condition = "WAF_Prefetch"
-    response_object    = "WAF_Response"
-  }
-  force_destroy = true
-}
 
 data "fastly_waf_rules" "owasp" {
   publishers = ["owasp"]
 }
 
 resource "fastly_service_waf_configuration_v1" "waf" {
-  waf_id                          = fastly_service_v1.foo.waf[0].waf_id
+  waf_id                          = fastly_service_v1.demo.waf[0].waf_id
   http_violation_score_threshold  = 202
 
   dynamic "rule" {

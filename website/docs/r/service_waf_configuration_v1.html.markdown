@@ -66,13 +66,68 @@ resource "fastly_service_v1" "demo" {
 }
 
 resource "fastly_service_waf_configuration_v1" "waf" {
+  waf_id                          = fastly_service_v1.demo.waf[0].waf_id
+  http_violation_score_threshold  = 100
+}
+```
 
-  waf_id                          = fastly_service_v1.foo.waf[0].waf_id
+Usage with rules:
+
+```hcl
+variable "type_status" {
+  type = map(string)
+  default = {
+    score     = "score"
+    threshold = "log"
+    strict    = "log"
+  }
+}
+
+resource "fastly_service_v1" "demo" {
+  name = "demofastly"
+
+  domain {
+    name    = "demo.notexample.com"
+    comment = "demo"
+  }
+
+  backend {
+    address = "127.0.0.1"
+    name    = "origin1"
+    port    = 80
+  }
+
+  condition {
+    name      = "Waf_Prefetch"
+    type      = "PREFETCH"
+    statement = "req.url~+\"index.html\""
+  }
+
+  response_object {
+    name     = "WAF_Response"
+    status   = "403"
+    response = "Forbidden"
+    content  = "content2"
+  }
+
+  waf {
+    prefetch_condition = "Waf_Prefetch"
+    response_object    = "WAF_Response"
+  }
+
+  force_destroy = true
+}
+
+data "fastly_waf_rules" "owasp" {
+  publishers = ["owasp"]
+}
+
+resource "fastly_service_waf_configuration_v1" "waf" {
+  waf_id                          = fastly_service_v1.demo.waf[0].waf_id
   http_violation_score_threshold  = 100
 
   dynamic "rule" {
-    for_each = data.fastly_waf_rules.r1.rules
-
+    for_each = data.fastly_waf_rules.owasp.rules
     content {
       modsec_rule_id = rule.value.modsec_rule_id
       revision       = rule.value.latest_revision_number
@@ -81,6 +136,80 @@ resource "fastly_service_waf_configuration_v1" "waf" {
   }
 }
 ```
+
+Usage with rules set individually:
+
+```hcl
+variable "type_status" {
+  type = map(string)
+  default = {
+    score     = "score"
+    threshold = "log"
+    strict    = "log"
+  }
+}
+
+variable "individual_rules" {
+  type = map(string)
+  default = {
+    1010020 = "block"
+  }
+}
+
+resource "fastly_service_v1" "demo" {
+  name = "demofastly"
+
+  domain {
+    name    = "demo.notexample.com"
+    comment = "demo"
+  }
+
+  backend {
+    address = "127.0.0.1"
+    name    = "origin1"
+    port    = 80
+  }
+
+  condition {
+    name      = "Waf_Prefetch"
+    type      = "PREFETCH"
+    statement = "req.url~+\"index.html\""
+  }
+
+  response_object {
+    name     = "WAF_Response"
+    status   = "403"
+    response = "Forbidden"
+    content  = "content2"
+  }
+
+  waf {
+    prefetch_condition = "Waf_Prefetch"
+    response_object    = "WAF_Response"
+  }
+
+  force_destroy = true
+}
+
+data "fastly_waf_rules" "owasp" {
+  publishers = ["owasp"]
+}
+
+resource "fastly_service_waf_configuration_v1" "waf" {
+  waf_id                          = fastly_service_v1.demo.waf[0].waf_id
+  http_violation_score_threshold  = 202
+
+  dynamic "rule" {
+    for_each = data.fastly_waf_rules.owasp.rules
+    content {
+      modsec_rule_id = rule.value.modsec_rule_id
+      revision       = rule.value.latest_revision_number
+      status         = lookup(var.individual_rules, rule.value.modsec_rule_id, lookup(var.type_status, rule.value.type, "log"))
+    }
+  }
+}
+```
+
 
 ## Argument Reference
 
@@ -119,7 +248,22 @@ The following arguments are supported:
 
 ## Attributes Reference
 
-* [fastly-waf_configuration](https://docs.fastly.com/api/ngwaf#api-section-ngwaf_firewall_versions)
+* [fastly-waf-configuration](https://docs.fastly.com/api/ngwaf#api-section-ngwaf_firewall_versions)
 
 ## Import
+
+This is an example of the import command being applied to the resource named `fastly_service_waf_configuration_v1.waf`
+The resource ID should be the WAF ID.
+
+```
+$ terraform import fastly_service_waf_configuration_v1.waf xxxxxxxxxxxxxxxxxxxx
+```
+
+If Terraform is already managing remote waf configurations against a resource being imported then the user will be asked to remove it from the existing Terraform state.  
+The following is an example of the Terraform state command to remove the resource named `fastly_service_waf_configuration_v1.waf` from the Terraform state file.
+
+```
+$ terraform state rm fastly_service_waf_configuration_v1.waf
+``` 
+
  
