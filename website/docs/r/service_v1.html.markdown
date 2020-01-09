@@ -153,7 +153,9 @@ resource "fastly_service_v1" "demo" {
 }
 ```
 
-Basic usage with [Web Application Firewall](https://docs.fastly.com/api/config#director):
+-> **Note:** The following example is about v1.1.0 and later of the Fastly terraform provider.
+
+Basic usage with [Web Application Firewall](https://docs.fastly.com/en/guides/web-application-firewall):
 
 ```hcl
 resource "fastly_service_v1" "demo" {
@@ -575,8 +577,11 @@ the items are managed outside of Terraform.
 
 The `waf` block supports:
 
-* `response_object` - (Required) A Web Application Firewall's (WAF) response object
-* `prefetch_condition` - (Required) A Web Application Firewall's (WAF) prefetch condition
+* `response_object` - (Required) A Web Application Firewall's (WAF) response object.
+* `prefetch_condition` - (Required) Name of already defined `condition` to apply. This `condition` must be of type `PREFETCH`. 
+For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
+* `disabled` - (Optional) The means to disable the WAF. Disabling a WAF removes all rules and restore all configuration 
+to its default values. 
 
 ## Attributes Reference
 
@@ -600,7 +605,7 @@ The `dictionary` block exports:
 
 The `waf` block exports:
 
-* `waf_id` - The ID of the waf.
+* `waf_id` - The ID of the WAF.
 
 [fastly-s3]: https://docs.fastly.com/guides/integrations/amazon-s3
 [fastly-cname]: https://docs.fastly.com/guides/basic-setup/adding-cname-records
