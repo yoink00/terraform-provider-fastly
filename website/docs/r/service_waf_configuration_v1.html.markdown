@@ -10,7 +10,7 @@ description: |-
 
 # fastly_service_waf_configuration_v1
 
-Defines a set of Web Application Firewall configuration options that can be used to populate a service WAF.  This resource will populate a WAF with configuration and WAF rules and will track their state.
+Defines a set of Web Application Firewall configuration options that can be used to populate a service WAF. This resource will configure rules, thresholds and other settings for a WAF.
 
 
 ~> **Warning:** Terraform will take precedence over any changes you make in the UI or API. Such changes are likely to be reversed if you run Terraform again.    
@@ -121,7 +121,7 @@ resource "fastly_service_waf_configuration_v1" "waf" {
 }
 ```
 
-Usage with rules from datasource:
+Usage with rules from data source:
 
 ```hcl
 variable "type_status" {
@@ -187,9 +187,10 @@ resource "fastly_service_waf_configuration_v1" "waf" {
 }
 ```
 
-Usage with rules set individually:
+Usage with support for individual rule configuration (this is the suggested pattern):
 
 ```hcl
+// this variable is used for rule configuration in bulk
 variable "type_status" {
   type = map(string)
   default = {
@@ -198,7 +199,7 @@ variable "type_status" {
     strict    = "log"
   }
 }
-
+// this variable is used for individual rule configuration
 variable "individual_rules" {
   type = map(string)
   default = {
@@ -254,6 +255,7 @@ resource "fastly_service_waf_configuration_v1" "waf" {
     content {
       modsec_rule_id = rule.value.modsec_rule_id
       revision       = rule.value.latest_revision_number
+      // Nested lookups in order to apply a combination of in bulk and individual rule configuration
       status         = lookup(var.individual_rules, rule.value.modsec_rule_id, lookup(var.type_status, rule.value.type, "log"))
     }
   }
