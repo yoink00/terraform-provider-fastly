@@ -580,8 +580,7 @@ The `waf` block supports:
 * `response_object` - (Required) A Web Application Firewall's (WAF) response object.
 * `prefetch_condition` - (Required) Name of already defined `condition` to apply. This `condition` must be of type `PREFETCH`. 
 For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
-* `disabled` - (Optional) This flag disables the WAF. Disabling a WAF removes all rules and restore all configuration 
-to its default values. 
+* `disabled` - (Optional) This flag disables the WAF. When a WAF is disabled, all configuration remains but in a inactive state. 
 
 ## Attributes Reference
 
