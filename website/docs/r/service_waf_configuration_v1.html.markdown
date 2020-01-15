@@ -262,6 +262,81 @@ resource "fastly_service_waf_configuration_v1" "waf" {
 }
 ```
 
+Usage with support for specific rule revision configuration:
+
+```hcl
+// this variable is used for rule configuration in bulk
+variable "type_status" {
+  type = map(string)
+  default = {
+    score     = "score"
+    threshold = "log"
+    strict    = "log"
+  }
+}
+
+// this variable is used for individual rule revision configuration
+variable "specific_rule_revisions" {
+  type = map(string)
+  default = {
+    //  if the revision requested is not found, the server will return a 404 response code
+    1010020 = 1
+  }
+}
+
+resource "fastly_service_v1" "demo" {
+  name = "demofastly"
+
+  domain {
+    name    = "demo.notexample.com"
+    comment = "demo"
+  }
+
+  backend {
+    address = "127.0.0.1"
+    name    = "origin1"
+    port    = 80
+  }
+
+  condition {
+    name      = "Waf_Prefetch"
+    type      = "PREFETCH"
+    statement = "req.url~+\"index.html\""
+  }
+
+  response_object {
+    name     = "WAF_Response"
+    status   = "403"
+    response = "Forbidden"
+    content  = "content2"
+  }
+
+  waf {
+    prefetch_condition = "Waf_Prefetch"
+    response_object    = "WAF_Response"
+  }
+
+  force_destroy = true
+}
+
+data "fastly_waf_rules" "owasp" {
+  publishers = ["owasp"]
+}
+
+resource "fastly_service_waf_configuration_v1" "waf" {
+  waf_id                          = fastly_service_v1.demo.waf[0].waf_id
+  http_violation_score_threshold  = 202
+
+  dynamic "rule" {
+    for_each = data.fastly_waf_rules.owasp.rules
+    content {
+      modsec_rule_id = rule.value.modsec_rule_id
+      revision       = lookup(var.specific_rule_revisions, rule.value.modsec_rule_id, rule.value.latest_revision_number)
+      status         = lookup(var.type_status, rule.value.type, "log")
+    }
+  }
+}
+```
 
 ## Argument Reference
 
