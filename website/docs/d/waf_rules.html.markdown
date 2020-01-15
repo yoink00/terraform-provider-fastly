@@ -12,6 +12,9 @@ description: |-
 
 Use this data source to get the [WAF rules][1] of Fastly.
 
+~> **Warning:** The data source's filters are applied using an **AND** boolean operator, so depending on the combination of those, 
+they may become mutually exclusive.
+
 ## Example Usage
 
 Usage with publishers Filter:
@@ -36,6 +39,14 @@ Usage with exclude filter:
 data "fastly_waf_rules" "owasp_with_exclusions" {
   publishers = ["owasp"]
   exclude_modsec_rule_ids = [1010090]
+}
+```
+
+Usage without filters:
+
+```hcl
+data "fastly_waf_rules" "all" {
+  // This will retrieve the entire rule list available on the server at the time.
 }
 ```
 
