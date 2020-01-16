@@ -6,14 +6,11 @@ description: |-
   Get information on Fastly WAF rules.
 ---
 
--> **Note:** This page is about v1.1.0 and later of the Fastly terraform provider.
+-> **Note:** This data source is only available from x.x.x of the Fastly terraform provider.
 
 # fastly_waf_rules
 
 Use this data source to get the [WAF rules][1] of Fastly.
-
-~> **Warning:** The data source's filters are applied using an **AND** boolean operator, so depending on the combination of those, 
-they may become mutually exclusive.
 
 ## Example Usage
 
@@ -51,6 +48,9 @@ data "fastly_waf_rules" "all" {
 ```
 
 ## Argument Reference
+
+~> **Warning:** The data source's filters are applied using an **AND** boolean operator, so depending on the combination of those, 
+they may become mutually exclusive.
 
 * `publishers` - Inclusion filter by WAF rule's publishers.
 * `tags` - Inclusion filter by WAF rule's tags.

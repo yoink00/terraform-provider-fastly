@@ -153,7 +153,7 @@ resource "fastly_service_v1" "demo" {
 }
 ```
 
--> **Note:** The following example is about v1.1.0 and later of the Fastly terraform provider.
+-> **Note:** The following example is only available from x.x.x of the Fastly terraform provider.
 
 Basic usage with [Web Application Firewall](https://docs.fastly.com/en/guides/web-application-firewall):
 

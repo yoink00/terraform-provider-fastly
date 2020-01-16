@@ -6,7 +6,7 @@ description: |-
   Provides a Web Application Firewall configuration and rules that can be applied to a service. 
 ---
 
--> **Note:** This page is about v1.1.0 and later of the Fastly terraform provider.
+-> **Note:** This resource is only available from x.x.x of the Fastly terraform provider.
 
 # fastly_service_waf_configuration_v1
 
