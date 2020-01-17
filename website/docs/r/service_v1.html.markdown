@@ -175,7 +175,16 @@ resource "fastly_service_v1" "demo" {
   condition {
     name      = "WAF_Prefetch"
     type      = "PREFETCH"
-    statement = "req.url~+\"index.html\""
+    statement = "req.backend.is_origin"
+  }
+
+  # this condition will always be false
+  # adding it to the response object created below
+  # prevents Fastly from returning a 403 on all of your traffic
+  condition {
+    name      = "WAF_always_false"
+    statement = "false"
+    type      = "REQUEST"
   }
 
   response_object {
@@ -183,6 +192,7 @@ resource "fastly_service_v1" "demo" {
     status   = "403"
     response = "Forbidden"
     content  = "content"
+    request_condition = "WAF_always_false"
   }
 
   waf {

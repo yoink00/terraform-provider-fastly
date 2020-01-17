@@ -66,4 +66,4 @@ The `rules` block supports:
 * `latest_revision_number` - The rule's latest revision.
 * `type` - The rule's type.
 
-[1]: https://docs.fastly.com/en/guides/fastly-waf-rule-set-updates-maintenance
+[1]: https://docs.fastly.com/api/ngwaf#ngwaf_rules
