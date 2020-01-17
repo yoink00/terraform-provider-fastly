@@ -58,7 +58,7 @@ they may become mutually exclusive.
 
 ## Attribute Reference
 
-* `rules` - The Web Application Firewall's active rules.
+* `rules` - The Web Application Firewall's rules result set.
 
 The `rules` block supports:
 
