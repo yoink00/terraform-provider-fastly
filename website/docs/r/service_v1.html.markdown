@@ -162,7 +162,7 @@ resource "fastly_service_v1" "demo" {
   name = "demofastly"
 
   domain {
-    name    = "demo.notexample.com"
+    name    = "example.com"
     comment = "demo"
   }
 
