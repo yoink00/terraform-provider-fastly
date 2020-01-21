@@ -36,7 +36,7 @@ resource "fastly_service_v1" "demo" {
   }
 
   condition {
-    name      = "Waf_Prefetch"
+    name      = "WAF_Prefetch"
     type      = "PREFETCH"
     statement = "req.backend.is_origin"
   }
@@ -51,15 +51,16 @@ resource "fastly_service_v1" "demo" {
   }
 
   response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content"
+    name              = "WAF_Response"
+    status            = "403"
+    response          = "Forbidden"
+    content_type      = "text/html"
+    content           = "<html><body>something</body></html>"
     request_condition = "WAF_always_false"
   }
 
   waf {
-    prefetch_condition = "Waf_Prefetch"
+    prefetch_condition = "WAF_Prefetch"
     response_object    = "WAF_Response"
   }
 
@@ -90,7 +91,7 @@ resource "fastly_service_v1" "demo" {
   }
 
   condition {
-    name      = "Waf_Prefetch"
+    name      = "WAF_Prefetch"
     type      = "PREFETCH"
     statement = "req.backend.is_origin"
   }
@@ -105,15 +106,16 @@ resource "fastly_service_v1" "demo" {
   }
 
   response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content"
+    name              = "WAF_Response"
+    status            = "403"
+    response          = "Forbidden"
+    content_type      = "text/html"
+    content           = "<html><body>something</body></html>"
     request_condition = "WAF_always_false"
   }
 
   waf {
-    prefetch_condition = "Waf_Prefetch"
+    prefetch_condition = "WAF_Prefetch"
     response_object    = "WAF_Response"
   }
 
@@ -159,7 +161,7 @@ resource "fastly_service_v1" "demo" {
   }
 
   condition {
-    name      = "Waf_Prefetch"
+    name      = "WAF_Prefetch"
     type      = "PREFETCH"
     statement = "req.backend.is_origin"
   }
@@ -174,15 +176,15 @@ resource "fastly_service_v1" "demo" {
   }
 
   response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content"
+    name              = "WAF_Response"
+    status            = "403"
+    response          = "Forbidden"
+    content_type      = "text/html"
+    content           = "<html><body>something</body></html>"
     request_condition = "WAF_always_false"
   }
-
   waf {
-    prefetch_condition = "Waf_Prefetch"
+    prefetch_condition = "WAF_Prefetch"
     response_object    = "WAF_Response"
   }
 
@@ -243,7 +245,7 @@ resource "fastly_service_v1" "demo" {
   }
 
   condition {
-    name      = "Waf_Prefetch"
+    name      = "WAF_Prefetch"
     type      = "PREFETCH"
     statement = "req.backend.is_origin"
   }
@@ -258,15 +260,16 @@ resource "fastly_service_v1" "demo" {
   }
 
   response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content"
+    name              = "WAF_Response"
+    status            = "403"
+    response          = "Forbidden"
+    content_type      = "text/html"
+    content           = "<html><body>something</body></html>"
     request_condition = "WAF_always_false"
   }
 
   waf {
-    prefetch_condition = "Waf_Prefetch"
+    prefetch_condition = "WAF_Prefetch"
     response_object    = "WAF_Response"
   }
 
@@ -330,7 +333,7 @@ resource "fastly_service_v1" "demo" {
   }
 
   condition {
-    name      = "Waf_Prefetch"
+    name      = "WAF_Prefetch"
     type      = "PREFETCH"
     statement = "req.backend.is_origin"
   }
@@ -345,15 +348,16 @@ resource "fastly_service_v1" "demo" {
   }
 
   response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content"
+    name              = "WAF_Response"
+    status            = "403"
+    response          = "Forbidden"
+    content_type      = "text/html"
+    content           = "<html><body>something</body></html>"
     request_condition = "WAF_always_false"
   }
 
   waf {
-    prefetch_condition = "Waf_Prefetch"
+    prefetch_condition = "WAF_Prefetch"
     response_object    = "WAF_Response"
   }
 

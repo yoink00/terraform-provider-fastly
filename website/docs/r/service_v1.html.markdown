@@ -188,10 +188,11 @@ resource "fastly_service_v1" "demo" {
   }
 
   response_object {
-    name     = "WAF_Response"
-    status   = "403"
-    response = "Forbidden"
-    content  = "content"
+    name              = "WAF_Response"
+    status            = "403"
+    response          = "Forbidden"
+    content_type      = "text/html"
+    content           = "<html><body>something</body></html>"
     request_condition = "WAF_always_false"
   }
 
@@ -587,7 +588,7 @@ the items are managed outside of Terraform.
 
 The `waf` block supports:
 
-* `response_object` - (Required) A Web Application Firewall's (WAF) response object.
+* `response_object` - (Required) The response object used by the Web Application Firewall.
 * `prefetch_condition` - (Required) Name of already defined `condition` to apply. This `condition` must be of type `PREFETCH`. 
 For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
 * `disabled` - (Optional) This flag disables the WAF. When a WAF is disabled, all configuration remains but in a inactive state. 
