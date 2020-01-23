@@ -127,8 +127,7 @@ resource "fastly_service_waf_configuration_v1" "waf" {
 
 ## Argument Reference
 
-~> **Warning:** The data source's filters are applied using an **AND** boolean operator, so depending on the combination of filters, 
-they may become mutually exclusive.
+~> **Warning:** The data source's filters are applied using an **AND** boolean operator, so depending on the combination of filters, they may become mutually exclusive.
 
 * `publishers` - Inclusion filter by WAF rule's publishers.
 * `tags` - Inclusion filter by WAF rule's tags.
