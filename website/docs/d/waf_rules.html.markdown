@@ -11,7 +11,7 @@ description: |-
 # fastly_waf_rules
 
 Use this data source to get the [WAF rules][1] of Fastly. A set of third-party rules from the OWASP Core Ruleset, commercial sources, and open source, in addition to Fastly-generated rules.
-They offer protection from injection attacks and cross site scripting amongst other key application-layer attacks
+They offer protection from injection attacks and cross site scripting amongst other key application-layer attacks.
 
 ## Example Usage
 
