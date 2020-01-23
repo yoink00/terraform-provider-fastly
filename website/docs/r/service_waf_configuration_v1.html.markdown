@@ -313,7 +313,7 @@ variable "type_status" {
 variable "specific_rule_revisions" {
   type = map(string)
   default = {
-    //  if the revision requested is not found, the server will return a 404 response code
+    //  If the revision requested is not found, the server will return a 404 response code.
     1010020 = 1
   }
 }
