@@ -421,7 +421,7 @@ The following arguments are supported:
 
 The `rule` block supports:
 
-* `status` - (Required) The Web Application Firewall rule's status. Allowed values are (log, block and score).
+* `status` - (Required) The Web Application Firewall rule's status. Allowed values are (`log`, `block` and `score`).
 * `modsec_rule_id` - (Required) The Web Application Firewall rule's modsecurity ID.
 * `revision` - (Optional) The Web Application Firewall rule's revision. The latest revision will be used if this is not provided.
 
