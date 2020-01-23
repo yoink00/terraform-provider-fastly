@@ -82,7 +82,7 @@ resource "fastly_service_v1" "demo" {
 
   # This condition will always be false
   # adding it to the response object created below
-  # prevents Fastly from returning a 403 on all of your traffic
+  # prevents Fastly from returning a 403 on all of your traffic.
   condition {
     name      = "WAF_always_false"
     statement = "false"
