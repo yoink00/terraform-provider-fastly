@@ -94,7 +94,7 @@ resource "fastly_service_v1" "demo" {
     status            = "403"
     response          = "Forbidden"
     content_type      = "text/html"
-    content           = "<html><body>something</body></html>"
+    content           = "<html><body>Forbidden</body></html>"
     request_condition = "WAF_always_false"
   }
 
