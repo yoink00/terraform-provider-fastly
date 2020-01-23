@@ -166,7 +166,7 @@ resource "fastly_service_v1" "demo" {
     statement = "req.backend.is_origin"
   }
 
-  # this condition will always be false
+  # This condition will always be false
   # adding it to the response object created below
   # prevents Fastly from returning a 403 on all of your traffic
   condition {
