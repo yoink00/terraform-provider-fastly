@@ -309,7 +309,7 @@ variable "type_status" {
   }
 }
 
-// this variable is used for individual rule revision configuration
+// This variable is used for individual rule revision configuration.
 variable "specific_rule_revisions" {
   type = map(string)
   default = {
