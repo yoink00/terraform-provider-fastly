@@ -588,7 +588,7 @@ the items are managed outside of Terraform.
 
 The `waf` block supports:
 
-* `response_object` - (Required) The response object used by the Web Application Firewall.
+* `response_object` - (Required) The name of the [response object](#response_object) used by the Web Application Firewall.
 * `prefetch_condition` - (Required) Name of already defined `condition` to apply. This `condition` must be of type `PREFETCH`. 
 For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
 * `disabled` - (Optional) This flag disables the WAF. When a WAF is disabled, all configuration remains but in a inactive state. 
