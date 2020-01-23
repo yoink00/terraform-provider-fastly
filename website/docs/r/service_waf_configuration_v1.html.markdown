@@ -289,7 +289,7 @@ resource "fastly_service_waf_configuration_v1" "waf" {
     content {
       modsec_rule_id = rule.value.modsec_rule_id
       revision       = rule.value.latest_revision_number
-      // Nested lookups in order to apply a combination of in bulk and individual rule configuration
+      // Nested lookups in order to apply a combination of in bulk and individual rule configuration.
       status         = lookup(var.individual_rules, rule.value.modsec_rule_id, lookup(var.type_status, rule.value.type, "log"))
     }
   }
