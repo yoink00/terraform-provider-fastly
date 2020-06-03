@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var gzipSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -36,3 +41,116 @@ var gzipSchema = &schema.Schema{
 	},
 }
 
+func flattenGzips(gzipsList []*fastly.Gzip) []map[string]interface{} {
+	var gl []map[string]interface{}
+	for _, g := range gzipsList {
+		// Convert Gzip to a map for saving to state.
+		ng := map[string]interface{}{
+			"name":            g.Name,
+			"cache_condition": g.CacheCondition,
+		}
+
+		if g.Extensions != "" {
+			e := strings.Split(g.Extensions, " ")
+			var et []interface{}
+			for _, ev := range e {
+				et = append(et, ev)
+			}
+			ng["extensions"] = schema.NewSet(schema.HashString, et)
+		}
+
+		if g.ContentTypes != "" {
+			c := strings.Split(g.ContentTypes, " ")
+			var ct []interface{}
+			for _, cv := range c {
+				ct = append(ct, cv)
+			}
+			ng["content_types"] = schema.NewSet(schema.HashString, ct)
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ng {
+			if v == "" {
+				delete(ng, k)
+			}
+		}
+
+		gl = append(gl, ng)
+	}
+
+	return gl
+}
+
+func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	og, ng := d.GetChange("gzip")
+	if og == nil {
+		og = new(schema.Set)
+	}
+	if ng == nil {
+		ng = new(schema.Set)
+	}
+
+	ogs := og.(*schema.Set)
+	ngs := ng.(*schema.Set)
+
+	remove := ogs.Difference(ngs).List()
+	add := ngs.Difference(ogs).List()
+
+	// Delete removed gzip rules
+	for _, dRaw := range remove {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.DeleteGzipInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Gzip removal opts: %#v", opts)
+		err := conn.DeleteGzip(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new Gzips
+	for _, dRaw := range add {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.CreateGzipInput{
+			Service:        d.Id(),
+			Version:        latestVersion,
+			Name:           df["name"].(string),
+			CacheCondition: df["cache_condition"].(string),
+		}
+
+		if v, ok := df["content_types"]; ok {
+			if len(v.(*schema.Set).List()) > 0 {
+				var cl []string
+				for _, c := range v.(*schema.Set).List() {
+					cl = append(cl, c.(string))
+				}
+				opts.ContentTypes = strings.Join(cl, " ")
+			}
+		}
+
+		if v, ok := df["extensions"]; ok {
+			if len(v.(*schema.Set).List()) > 0 {
+				var el []string
+				for _, e := range v.(*schema.Set).List() {
+					el = append(el, e.(string))
+				}
+				opts.Extensions = strings.Join(el, " ")
+			}
+		}
+
+		log.Printf("[DEBUG] Fastly Gzip Addition opts: %#v", opts)
+		_, err := conn.CreateGzip(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

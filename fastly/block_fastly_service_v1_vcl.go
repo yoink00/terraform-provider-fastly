@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"errors"
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var vclSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -27,3 +32,121 @@ var vclSchema = &schema.Schema{
 	},
 }
 
+func flattenVCLs(vclList []*fastly.VCL) []map[string]interface{} {
+	var vl []map[string]interface{}
+	for _, vcl := range vclList {
+		// Convert VCLs to a map for saving to state.
+		vclMap := map[string]interface{}{
+			"name":    vcl.Name,
+			"content": vcl.Content,
+			"main":    vcl.Main,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range vclMap {
+			if v == "" {
+				delete(vclMap, k)
+			}
+		}
+
+		vl = append(vl, vclMap)
+	}
+
+	return vl
+}
+
+func validateVCLs(d *schema.ResourceData) error {
+	// TODO: this would be nice to move into a resource/collection validation function, once that is available
+	// (see https://github.com/hashicorp/terraform/pull/4348 and https://github.com/hashicorp/terraform/pull/6508)
+	vcls, exists := d.GetOk("vcl")
+	if !exists {
+		return nil
+	}
+
+	numberOfMainVCLs, numberOfIncludeVCLs := 0, 0
+	for _, vclElem := range vcls.(*schema.Set).List() {
+		vcl := vclElem.(map[string]interface{})
+		if mainVal, hasMain := vcl["main"]; hasMain && mainVal.(bool) {
+			numberOfMainVCLs++
+		} else {
+			numberOfIncludeVCLs++
+		}
+	}
+	if numberOfMainVCLs == 0 && numberOfIncludeVCLs > 0 {
+		return errors.New("if you include VCL configurations, one of them should have main = true")
+	}
+	if numberOfMainVCLs > 1 {
+		return errors.New("you cannot have more than one VCL configuration with main = true")
+	}
+	return nil
+}
+
+func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
+	// endpoint to update a VCL, we simply destroy it and create a new one.
+	oldVCLVal, newVCLVal := d.GetChange("vcl")
+	if oldVCLVal == nil {
+		oldVCLVal = new(schema.Set)
+	}
+	if newVCLVal == nil {
+		newVCLVal = new(schema.Set)
+	}
+
+	oldVCLSet := oldVCLVal.(*schema.Set)
+	newVCLSet := newVCLVal.(*schema.Set)
+
+	remove := oldVCLSet.Difference(newVCLSet).List()
+	add := newVCLSet.Difference(oldVCLSet).List()
+
+	// Delete removed VCL configurations
+	for _, dRaw := range remove {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.DeleteVCLInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly VCL Removal opts: %#v", opts)
+		err := conn.DeleteVCL(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+	// POST new VCL configurations
+	for _, dRaw := range add {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.CreateVCLInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+			Content: df["content"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly VCL Addition opts: %#v", opts)
+		_, err := conn.CreateVCL(&opts)
+		if err != nil {
+			return err, true
+		}
+
+		// if this new VCL is the main
+		if df["main"].(bool) {
+			opts := fastly.ActivateVCLInput{
+				Service: d.Id(),
+				Version: latestVersion,
+				Name:    df["name"].(string),
+			}
+			log.Printf("[DEBUG] Fastly VCL activation opts: %#v", opts)
+			_, err := conn.ActivateVCL(&opts)
+			if err != nil {
+				return err, true
+			}
+
+		}
+	}
+	return nil, false
+}

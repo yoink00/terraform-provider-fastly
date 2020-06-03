@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var backendSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -164,3 +169,115 @@ var backendSchema = &schema.Schema{
 	},
 }
 
+func flattenBackends(backendList []*fastly.Backend) []map[string]interface{} {
+	var bl []map[string]interface{}
+	for _, b := range backendList {
+		// Convert Backend to a map for saving to state.
+		nb := map[string]interface{}{
+			"name":                  b.Name,
+			"address":               b.Address,
+			"auto_loadbalance":      b.AutoLoadbalance,
+			"between_bytes_timeout": int(b.BetweenBytesTimeout),
+			"connect_timeout":       int(b.ConnectTimeout),
+			"error_threshold":       int(b.ErrorThreshold),
+			"first_byte_timeout":    int(b.FirstByteTimeout),
+			"max_conn":              int(b.MaxConn),
+			"port":                  int(b.Port),
+			"override_host":         b.OverrideHost,
+			"shield":                b.Shield,
+			"ssl_check_cert":        b.SSLCheckCert,
+			"ssl_hostname":          b.SSLHostname,
+			"ssl_ca_cert":           b.SSLCACert,
+			"ssl_client_key":        b.SSLClientKey,
+			"ssl_client_cert":       b.SSLClientCert,
+			"max_tls_version":       b.MaxTLSVersion,
+			"min_tls_version":       b.MinTLSVersion,
+			"ssl_ciphers":           strings.Join(b.SSLCiphers, ","),
+			"use_ssl":               b.UseSSL,
+			"ssl_cert_hostname":     b.SSLCertHostname,
+			"ssl_sni_hostname":      b.SSLSNIHostname,
+			"weight":                int(b.Weight),
+			"request_condition":     b.RequestCondition,
+			"healthcheck":           b.HealthCheck,
+		}
+
+		bl = append(bl, nb)
+	}
+	return bl
+}
+
+func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	ob, nb := d.GetChange("backend")
+	if ob == nil {
+		ob = new(schema.Set)
+	}
+	if nb == nil {
+		nb = new(schema.Set)
+	}
+
+	obs := ob.(*schema.Set)
+	nbs := nb.(*schema.Set)
+	removeBackends := obs.Difference(nbs).List()
+	addBackends := nbs.Difference(obs).List()
+
+	// DELETE old Backends
+	for _, bRaw := range removeBackends {
+		bf := bRaw.(map[string]interface{})
+		opts := fastly.DeleteBackendInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    bf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Backend removal opts: %#v", opts)
+		err := conn.DeleteBackend(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// Find and post new Backends
+	for _, dRaw := range addBackends {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.CreateBackendInput{
+			Service:             d.Id(),
+			Version:             latestVersion,
+			Name:                df["name"].(string),
+			Address:             df["address"].(string),
+			OverrideHost:        df["override_host"].(string),
+			AutoLoadbalance:     fastly.CBool(df["auto_loadbalance"].(bool)),
+			SSLCheckCert:        fastly.CBool(df["ssl_check_cert"].(bool)),
+			SSLHostname:         df["ssl_hostname"].(string),
+			SSLCACert:           df["ssl_ca_cert"].(string),
+			SSLCertHostname:     df["ssl_cert_hostname"].(string),
+			SSLSNIHostname:      df["ssl_sni_hostname"].(string),
+			UseSSL:              fastly.CBool(df["use_ssl"].(bool)),
+			SSLClientKey:        df["ssl_client_key"].(string),
+			SSLClientCert:       df["ssl_client_cert"].(string),
+			MaxTLSVersion:       df["max_tls_version"].(string),
+			MinTLSVersion:       df["min_tls_version"].(string),
+			SSLCiphers:          strings.Split(df["ssl_ciphers"].(string), ","),
+			Shield:              df["shield"].(string),
+			Port:                uint(df["port"].(int)),
+			BetweenBytesTimeout: uint(df["between_bytes_timeout"].(int)),
+			ConnectTimeout:      uint(df["connect_timeout"].(int)),
+			ErrorThreshold:      uint(df["error_threshold"].(int)),
+			FirstByteTimeout:    uint(df["first_byte_timeout"].(int)),
+			MaxConn:             uint(df["max_conn"].(int)),
+			Weight:              uint(df["weight"].(int)),
+			RequestCondition:    df["request_condition"].(string),
+			HealthCheck:         df["healthcheck"].(string),
+		}
+
+		log.Printf("[DEBUG] Create Backend Opts: %#v", opts)
+		_, err := conn.CreateBackend(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var dynamicsnippetSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -33,3 +38,124 @@ var dynamicsnippetSchema = &schema.Schema{
 	},
 }
 
+func buildDynamicSnippet(dynamicSnippetMap interface{}) (*fastly.CreateSnippetInput, error) {
+	df := dynamicSnippetMap.(map[string]interface{})
+	opts := fastly.CreateSnippetInput{
+		Name:     df["name"].(string),
+		Priority: df["priority"].(int),
+		Dynamic:  1,
+	}
+
+	snippetType := strings.ToLower(df["type"].(string))
+	switch snippetType {
+	case "init":
+		opts.Type = fastly.SnippetTypeInit
+	case "recv":
+		opts.Type = fastly.SnippetTypeRecv
+	case "hash":
+		opts.Type = fastly.SnippetTypeHash
+	case "hit":
+		opts.Type = fastly.SnippetTypeHit
+	case "miss":
+		opts.Type = fastly.SnippetTypeMiss
+	case "pass":
+		opts.Type = fastly.SnippetTypePass
+	case "fetch":
+		opts.Type = fastly.SnippetTypeFetch
+	case "error":
+		opts.Type = fastly.SnippetTypeError
+	case "deliver":
+		opts.Type = fastly.SnippetTypeDeliver
+	case "log":
+		opts.Type = fastly.SnippetTypeLog
+	case "none":
+		opts.Type = fastly.SnippetTypeNone
+	}
+
+	return &opts, nil
+}
+
+func flattenDynamicSnippets(dynamicSnippetList []*fastly.Snippet) []map[string]interface{} {
+	var sl []map[string]interface{}
+	for _, dynamicSnippet := range dynamicSnippetList {
+		// Skip non-dynamic snippets
+		if dynamicSnippet.Dynamic == 0 {
+			continue
+		}
+
+		// Convert VCLs to a map for saving to state.
+		dynamicSnippetMap := map[string]interface{}{
+			"snippet_id": dynamicSnippet.ID,
+			"name":       dynamicSnippet.Name,
+			"type":       dynamicSnippet.Type,
+			"priority":   int(dynamicSnippet.Priority),
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range dynamicSnippetMap {
+			if v == "" {
+				delete(dynamicSnippetMap, k)
+			}
+		}
+
+		sl = append(sl, dynamicSnippetMap)
+	}
+
+	return sl
+}
+
+func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
+	// endpoint to update a VCL dynamic snippet, we simply destroy it and create a new one.
+	oldDynamicSnippetVal, newDynamicSnippetVal := d.GetChange("dynamicsnippet")
+	if oldDynamicSnippetVal == nil {
+		oldDynamicSnippetVal = new(schema.Set)
+	}
+	if newDynamicSnippetVal == nil {
+		newDynamicSnippetVal = new(schema.Set)
+	}
+
+	oldDynamicSnippetSet := oldDynamicSnippetVal.(*schema.Set)
+	newDynamicSnippetSet := newDynamicSnippetVal.(*schema.Set)
+
+	remove := oldDynamicSnippetSet.Difference(newDynamicSnippetSet).List()
+	add := newDynamicSnippetSet.Difference(oldDynamicSnippetSet).List()
+
+	// Delete removed VCL Snippet configurations
+	for _, dRaw := range remove {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.DeleteSnippetInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly VCL Dynamic Snippet Removal opts: %#v", opts)
+		err := conn.DeleteSnippet(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new VCL Snippet configurations
+	for _, dRaw := range add {
+		opts, err := buildDynamicSnippet(dRaw.(map[string]interface{}))
+		if err != nil {
+			log.Printf("[DEBUG] Error building VCL Dynamic Snippet: %s", err)
+			return err, true
+		}
+		opts.Service = d.Id()
+		opts.Version = latestVersion
+
+		log.Printf("[DEBUG] Fastly VCL Dynamic Snippet Addition opts: %#v", opts)
+		_, err = conn.CreateSnippet(opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var requestSettingSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -75,3 +80,127 @@ var requestSettingSchema = &schema.Schema{
 	},
 }
 
+func flattenRequestSettings(rsList []*fastly.RequestSetting) []map[string]interface{} {
+	var rl []map[string]interface{}
+	for _, r := range rsList {
+		// Convert Request Settings to a map for saving to state.
+		nrs := map[string]interface{}{
+			"name":              r.Name,
+			"max_stale_age":     r.MaxStaleAge,
+			"force_miss":        r.ForceMiss,
+			"force_ssl":         r.ForceSSL,
+			"action":            r.Action,
+			"bypass_busy_wait":  r.BypassBusyWait,
+			"hash_keys":         r.HashKeys,
+			"xff":               r.XForwardedFor,
+			"timer_support":     r.TimerSupport,
+			"geo_headers":       r.GeoHeaders,
+			"default_host":      r.DefaultHost,
+			"request_condition": r.RequestCondition,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nrs {
+			if v == "" {
+				delete(nrs, k)
+			}
+		}
+
+		rl = append(rl, nrs)
+	}
+
+	return rl
+}
+
+func buildRequestSetting(requestSettingMap interface{}) (*fastly.CreateRequestSettingInput, error) {
+	df := requestSettingMap.(map[string]interface{})
+	opts := fastly.CreateRequestSettingInput{
+		Name:             df["name"].(string),
+		MaxStaleAge:      uint(df["max_stale_age"].(int)),
+		ForceMiss:        fastly.CBool(df["force_miss"].(bool)),
+		ForceSSL:         fastly.CBool(df["force_ssl"].(bool)),
+		BypassBusyWait:   fastly.CBool(df["bypass_busy_wait"].(bool)),
+		HashKeys:         df["hash_keys"].(string),
+		TimerSupport:     fastly.CBool(df["timer_support"].(bool)),
+		GeoHeaders:       fastly.CBool(df["geo_headers"].(bool)),
+		DefaultHost:      df["default_host"].(string),
+		RequestCondition: df["request_condition"].(string),
+	}
+
+	act := strings.ToLower(df["action"].(string))
+	switch act {
+	case "lookup":
+		opts.Action = fastly.RequestSettingActionLookup
+	case "pass":
+		opts.Action = fastly.RequestSettingActionPass
+	}
+
+	xff := strings.ToLower(df["xff"].(string))
+	switch xff {
+	case "clear":
+		opts.XForwardedFor = fastly.RequestSettingXFFClear
+	case "leave":
+		opts.XForwardedFor = fastly.RequestSettingXFFLeave
+	case "append":
+		opts.XForwardedFor = fastly.RequestSettingXFFAppend
+	case "append_all":
+		opts.XForwardedFor = fastly.RequestSettingXFFAppendAll
+	case "overwrite":
+		opts.XForwardedFor = fastly.RequestSettingXFFOverwrite
+	}
+
+	return &opts, nil
+}
+
+func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("request_setting")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	ors := os.(*schema.Set)
+	nrs := ns.(*schema.Set)
+	removeRequestSettings := ors.Difference(nrs).List()
+	addRequestSettings := nrs.Difference(ors).List()
+
+	// DELETE old Request Settings configurations
+	for _, sRaw := range removeRequestSettings {
+		sf := sRaw.(map[string]interface{})
+		opts := fastly.DeleteRequestSettingInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    sf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Request Setting removal opts: %#v", opts)
+		err := conn.DeleteRequestSetting(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Request Setting
+	for _, sRaw := range addRequestSettings {
+		opts, err := buildRequestSetting(sRaw.(map[string]interface{}))
+		if err != nil {
+			log.Printf("[DEBUG] Error building Requset Setting: %s", err)
+			return err, true
+		}
+		opts.Service = d.Id()
+		opts.Version = latestVersion
+
+		log.Printf("[DEBUG] Create Request Setting Opts: %#v", opts)
+		_, err = conn.CreateRequestSetting(opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

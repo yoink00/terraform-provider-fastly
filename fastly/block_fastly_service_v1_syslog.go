@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var syslogSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -98,3 +102,102 @@ var syslogSchema = &schema.Schema{
 	},
 }
 
+func flattenSyslogs(syslogList []*fastly.Syslog) []map[string]interface{} {
+	var pl []map[string]interface{}
+	for _, p := range syslogList {
+		// Convert Syslog to a map for saving to state.
+		ns := map[string]interface{}{
+			"name":               p.Name,
+			"address":            p.Address,
+			"port":               p.Port,
+			"format":             p.Format,
+			"format_version":     p.FormatVersion,
+			"token":              p.Token,
+			"use_tls":            p.UseTLS,
+			"tls_hostname":       p.TLSHostname,
+			"tls_ca_cert":        p.TLSCACert,
+			"tls_client_cert":    p.TLSClientCert,
+			"tls_client_key":     p.TLSClientKey,
+			"response_condition": p.ResponseCondition,
+			"message_type":       p.MessageType,
+			"placement":          p.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ns {
+			if v == "" {
+				delete(ns, k)
+			}
+		}
+
+		pl = append(pl, ns)
+	}
+
+	return pl
+}
+
+func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("syslog")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removeSyslog := oss.Difference(nss).List()
+	addSyslog := nss.Difference(oss).List()
+
+	// DELETE old syslog configurations
+	for _, pRaw := range removeSyslog {
+		slf := pRaw.(map[string]interface{})
+		opts := fastly.DeleteSyslogInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    slf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Syslog removal opts: %#v", opts)
+		err := conn.DeleteSyslog(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Syslog
+	for _, pRaw := range addSyslog {
+		slf := pRaw.(map[string]interface{})
+
+		opts := fastly.CreateSyslogInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              slf["name"].(string),
+			Address:           slf["address"].(string),
+			Port:              uint(slf["port"].(int)),
+			Format:            slf["format"].(string),
+			FormatVersion:     uint(slf["format_version"].(int)),
+			Token:             slf["token"].(string),
+			UseTLS:            fastly.CBool(slf["use_tls"].(bool)),
+			TLSHostname:       slf["tls_hostname"].(string),
+			TLSCACert:         slf["tls_ca_cert"].(string),
+			TLSClientCert:     slf["tls_client_cert"].(string),
+			TLSClientKey:      slf["tls_client_key"].(string),
+			ResponseCondition: slf["response_condition"].(string),
+			MessageType:       slf["message_type"].(string),
+			Placement:         slf["placement"].(string),
+		}
+
+		log.Printf("[DEBUG] Create Syslog Opts: %#v", opts)
+		_, err := conn.CreateSyslog(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

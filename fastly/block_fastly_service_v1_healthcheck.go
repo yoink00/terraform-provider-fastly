@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var healthcheckSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -76,3 +80,96 @@ var healthcheckSchema = &schema.Schema{
 	},
 }
 
+func flattenHealthchecks(healthcheckList []*fastly.HealthCheck) []map[string]interface{} {
+	var hl []map[string]interface{}
+	for _, h := range healthcheckList {
+		// Convert HealthChecks to a map for saving to state.
+		nh := map[string]interface{}{
+			"name":              h.Name,
+			"host":              h.Host,
+			"path":              h.Path,
+			"check_interval":    h.CheckInterval,
+			"expected_response": h.ExpectedResponse,
+			"http_version":      h.HTTPVersion,
+			"initial":           h.Initial,
+			"method":            h.Method,
+			"threshold":         h.Threshold,
+			"timeout":           h.Timeout,
+			"window":            h.Window,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nh {
+			if v == "" {
+				delete(nh, k)
+			}
+		}
+
+		hl = append(hl, nh)
+	}
+
+	return hl
+}
+
+func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	oh, nh := d.GetChange("healthcheck")
+	if oh == nil {
+		oh = new(schema.Set)
+	}
+	if nh == nil {
+		nh = new(schema.Set)
+	}
+
+	ohs := oh.(*schema.Set)
+	nhs := nh.(*schema.Set)
+	removeHealthCheck := ohs.Difference(nhs).List()
+	addHealthCheck := nhs.Difference(ohs).List()
+
+	// DELETE old healthcheck configurations
+	for _, hRaw := range removeHealthCheck {
+		hf := hRaw.(map[string]interface{})
+		opts := fastly.DeleteHealthCheckInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    hf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Healthcheck removal opts: %#v", opts)
+		err := conn.DeleteHealthCheck(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Healthcheck
+	for _, hRaw := range addHealthCheck {
+		hf := hRaw.(map[string]interface{})
+
+		opts := fastly.CreateHealthCheckInput{
+			Service:          d.Id(),
+			Version:          latestVersion,
+			Name:             hf["name"].(string),
+			Host:             hf["host"].(string),
+			Path:             hf["path"].(string),
+			CheckInterval:    uint(hf["check_interval"].(int)),
+			ExpectedResponse: uint(hf["expected_response"].(int)),
+			HTTPVersion:      hf["http_version"].(string),
+			Initial:          uint(hf["initial"].(int)),
+			Method:           hf["method"].(string),
+			Threshold:        uint(hf["threshold"].(int)),
+			Timeout:          uint(hf["timeout"].(int)),
+			Window:           uint(hf["window"].(int)),
+		}
+
+		log.Printf("[DEBUG] Create Healthcheck Opts: %#v", opts)
+		_, err := conn.CreateHealthCheck(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var splunkSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -65,3 +69,92 @@ var splunkSchema = &schema.Schema{
 	},
 }
 
+func flattenSplunks(splunkList []*fastly.Splunk) []map[string]interface{} {
+	var sl []map[string]interface{}
+	for _, s := range splunkList {
+		// Convert Splunk to a map for saving to state.
+		nbs := map[string]interface{}{
+			"name":               s.Name,
+			"url":                s.URL,
+			"format":             s.Format,
+			"format_version":     s.FormatVersion,
+			"response_condition": s.ResponseCondition,
+			"placement":          s.Placement,
+			"token":              s.Token,
+			"tls_hostname":       s.TLSHostname,
+			"tls_ca_cert":        s.TLSCACert,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nbs {
+			if v == "" {
+				delete(nbs, k)
+			}
+		}
+
+		sl = append(sl, nbs)
+	}
+
+	return sl
+}
+
+func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("splunk")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+
+	remove := oss.Difference(nss).List()
+	add := nss.Difference(oss).List()
+
+	// DELETE old Splunk logging configurations
+	for _, sRaw := range remove {
+		sf := sRaw.(map[string]interface{})
+		opts := fastly.DeleteSplunkInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    sf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Splunk removal opts: %#v", opts)
+		err := conn.DeleteSplunk(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Splunk configurations
+	for _, sRaw := range add {
+		sf := sRaw.(map[string]interface{})
+		opts := fastly.CreateSplunkInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              sf["name"].(string),
+			URL:               sf["url"].(string),
+			Format:            sf["format"].(string),
+			FormatVersion:     uint(sf["format_version"].(int)),
+			ResponseCondition: sf["response_condition"].(string),
+			Placement:         sf["placement"].(string),
+			Token:             sf["token"].(string),
+			TLSHostname:       sf["tls_hostname"].(string),
+			TLSCACert:         sf["tls_ca_cert"].(string),
+		}
+
+		log.Printf("[DEBUG] Splunk create opts: %#v", opts)
+		_, err := conn.CreateSplunk(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

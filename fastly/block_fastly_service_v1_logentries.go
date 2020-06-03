@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var logentriesSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -60,3 +64,90 @@ var logentriesSchema = &schema.Schema{
 	},
 }
 
+func flattenLogentries(logentriesList []*fastly.Logentries) []map[string]interface{} {
+	var LEList []map[string]interface{}
+	for _, currentLE := range logentriesList {
+		// Convert Logentries to a map for saving to state.
+		LEMapString := map[string]interface{}{
+			"name":               currentLE.Name,
+			"port":               currentLE.Port,
+			"use_tls":            currentLE.UseTLS,
+			"token":              currentLE.Token,
+			"format":             currentLE.Format,
+			"format_version":     currentLE.FormatVersion,
+			"response_condition": currentLE.ResponseCondition,
+			"placement":          currentLE.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range LEMapString {
+			if v == "" {
+				delete(LEMapString, k)
+			}
+		}
+
+		LEList = append(LEList, LEMapString)
+	}
+
+	return LEList
+}
+
+func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("logentries")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removeLogentries := oss.Difference(nss).List()
+	addLogentries := nss.Difference(oss).List()
+
+	// DELETE old logentries configurations
+	for _, pRaw := range removeLogentries {
+		slf := pRaw.(map[string]interface{})
+		opts := fastly.DeleteLogentriesInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    slf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Logentries removal opts: %#v", opts)
+		err := conn.DeleteLogentries(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Logentries
+	for _, pRaw := range addLogentries {
+		slf := pRaw.(map[string]interface{})
+
+		opts := fastly.CreateLogentriesInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              slf["name"].(string),
+			Port:              uint(slf["port"].(int)),
+			UseTLS:            fastly.CBool(slf["use_tls"].(bool)),
+			Token:             slf["token"].(string),
+			Format:            slf["format"].(string),
+			FormatVersion:     uint(slf["format_version"].(int)),
+			ResponseCondition: slf["response_condition"].(string),
+			Placement:         slf["placement"].(string),
+		}
+
+		log.Printf("[DEBUG] Create Logentries Opts: %#v", opts)
+		_, err := conn.CreateLogentries(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

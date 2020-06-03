@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var bigqueryloggingSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -71,3 +75,96 @@ var bigqueryloggingSchema = &schema.Schema{
 	},
 }
 
+func flattenBigQuery(bqList []*fastly.BigQuery) []map[string]interface{} {
+	var BQList []map[string]interface{}
+	for _, currentBQ := range bqList {
+		// Convert gcs to a map for saving to state.
+		BQMapString := map[string]interface{}{
+			"name":               currentBQ.Name,
+			"format":             currentBQ.Format,
+			"email":              currentBQ.User,
+			"secret_key":         currentBQ.SecretKey,
+			"project_id":         currentBQ.ProjectID,
+			"dataset":            currentBQ.Dataset,
+			"table":              currentBQ.Table,
+			"response_condition": currentBQ.ResponseCondition,
+			"template":           currentBQ.Template,
+			"placement":          currentBQ.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range BQMapString {
+			if v == "" {
+				delete(BQMapString, k)
+			}
+		}
+
+		BQList = append(BQList, BQMapString)
+	}
+
+	return BQList
+}
+
+func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("bigquerylogging")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removeBigquerylogging := oss.Difference(nss).List()
+	addBigquerylogging := nss.Difference(oss).List()
+
+	// DELETE old bigquerylogging configurations
+	for _, pRaw := range removeBigquerylogging {
+		sf := pRaw.(map[string]interface{})
+		opts := fastly.DeleteBigQueryInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    sf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly bigquerylogging removal opts: %#v", opts)
+		err := conn.DeleteBigQuery(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated bigquerylogging
+	for _, pRaw := range addBigquerylogging {
+		sf := pRaw.(map[string]interface{})
+		opts := fastly.CreateBigQueryInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              sf["name"].(string),
+			ProjectID:         sf["project_id"].(string),
+			Dataset:           sf["dataset"].(string),
+			Table:             sf["table"].(string),
+			User:              sf["email"].(string),
+			SecretKey:         sf["secret_key"].(string),
+			ResponseCondition: sf["response_condition"].(string),
+			Template:          sf["template"].(string),
+			Placement:         sf["placement"].(string),
+		}
+
+		if sf["format"].(string) != "" {
+			opts.Format = sf["format"].(string)
+		}
+
+		log.Printf("[DEBUG] Create bigquerylogging opts: %#v", opts)
+		_, err := conn.CreateBigQuery(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

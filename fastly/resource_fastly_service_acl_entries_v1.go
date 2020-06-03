@@ -208,31 +208,6 @@ func resourceServiceAclEntriesV1Delete(d *schema.ResourceData, meta interface{})
 	return nil
 }
 
-func flattenAclEntries(aclEntryList []*gofastly.ACLEntry) []map[string]interface{} {
-
-	var resultList []map[string]interface{}
-
-	for _, currentAclEntry := range aclEntryList {
-		aes := map[string]interface{}{
-			"id":      currentAclEntry.ID,
-			"ip":      currentAclEntry.IP,
-			"subnet":  currentAclEntry.Subnet,
-			"negated": currentAclEntry.Negated,
-			"comment": currentAclEntry.Comment,
-		}
-
-		for k, v := range aes {
-			if v == "" {
-				delete(aes, k)
-			}
-		}
-
-		resultList = append(resultList, aes)
-	}
-
-	return resultList
-}
-
 func resourceServiceACLEntriesV1Import(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	split := strings.Split(d.Id(), "/")
 

@@ -1,6 +1,12 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"fmt"
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var s3loggingSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -114,3 +120,128 @@ var s3loggingSchema = &schema.Schema{
 	},
 }
 
+func flattenS3s(s3List []*fastly.S3) []map[string]interface{} {
+	var sl []map[string]interface{}
+	for _, s := range s3List {
+		// Convert S3s to a map for saving to state.
+		ns := map[string]interface{}{
+			"name":               s.Name,
+			"bucket_name":        s.BucketName,
+			"s3_access_key":      s.AccessKey,
+			"s3_secret_key":      s.SecretKey,
+			"path":               s.Path,
+			"period":             s.Period,
+			"domain":             s.Domain,
+			"gzip_level":         s.GzipLevel,
+			"format":             s.Format,
+			"format_version":     s.FormatVersion,
+			"timestamp_format":   s.TimestampFormat,
+			"redundancy":         s.Redundancy,
+			"response_condition": s.ResponseCondition,
+			"message_type":       s.MessageType,
+			"placement":          s.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ns {
+			if v == "" {
+				delete(ns, k)
+			}
+		}
+
+		sl = append(sl, ns)
+	}
+
+	return sl
+}
+
+func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("s3logging")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removeS3Logging := oss.Difference(nss).List()
+	addS3Logging := nss.Difference(oss).List()
+
+	// DELETE old S3 Log configurations
+	for _, sRaw := range removeS3Logging {
+		sf := sRaw.(map[string]interface{})
+		opts := fastly.DeleteS3Input{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    sf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly S3 Logging removal opts: %#v", opts)
+		err := conn.DeleteS3(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated S3 Logging
+	for _, sRaw := range addS3Logging {
+		sf := sRaw.(map[string]interface{})
+
+		// Fastly API will not error if these are omitted, so we throw an error
+		// if any of these are empty
+		for _, sk := range []string{"s3_access_key", "s3_secret_key"} {
+			if sf[sk].(string) == "" {
+				return fmt.Errorf("[ERR] No %s found for S3 Log stream setup for Service (%s)", sk, d.Id()), true
+			}
+		}
+
+		opts := fastly.CreateS3Input{
+			Service:                      d.Id(),
+			Version:                      latestVersion,
+			Name:                         sf["name"].(string),
+			BucketName:                   sf["bucket_name"].(string),
+			AccessKey:                    sf["s3_access_key"].(string),
+			SecretKey:                    sf["s3_secret_key"].(string),
+			Period:                       uint(sf["period"].(int)),
+			GzipLevel:                    uint(sf["gzip_level"].(int)),
+			Domain:                       sf["domain"].(string),
+			Path:                         sf["path"].(string),
+			Format:                       sf["format"].(string),
+			FormatVersion:                uint(sf["format_version"].(int)),
+			TimestampFormat:              sf["timestamp_format"].(string),
+			ResponseCondition:            sf["response_condition"].(string),
+			MessageType:                  sf["message_type"].(string),
+			Placement:                    sf["placement"].(string),
+			ServerSideEncryptionKMSKeyID: sf["server_side_encryption_kms_key_id"].(string),
+		}
+
+		redundancy := strings.ToLower(sf["redundancy"].(string))
+		switch redundancy {
+		case "standard":
+			opts.Redundancy = fastly.S3RedundancyStandard
+		case "reduced_redundancy":
+			opts.Redundancy = fastly.S3RedundancyReduced
+		}
+
+		encryption := sf["server_side_encryption"].(string)
+		switch encryption {
+		case string(fastly.S3ServerSideEncryptionAES):
+			opts.ServerSideEncryption = fastly.S3ServerSideEncryptionAES
+		case string(fastly.S3ServerSideEncryptionKMS):
+			opts.ServerSideEncryption = fastly.S3ServerSideEncryptionKMS
+		}
+
+		log.Printf("[DEBUG] Create S3 Logging Opts: %#v", opts)
+		_, err := conn.CreateS3(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

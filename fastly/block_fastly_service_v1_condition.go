@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var conditionSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -32,3 +37,89 @@ var conditionSchema = &schema.Schema{
 	},
 }
 
+func flattenConditions(conditionList []*fastly.Condition) []map[string]interface{} {
+	var cl []map[string]interface{}
+	for _, c := range conditionList {
+		// Convert Conditions to a map for saving to state.
+		nc := map[string]interface{}{
+			"name":      c.Name,
+			"statement": c.Statement,
+			"type":      c.Type,
+			"priority":  c.Priority,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nc {
+			if v == "" {
+				delete(nc, k)
+			}
+		}
+
+		cl = append(cl, nc)
+	}
+
+	return cl
+}
+
+func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	// Note: we don't utilize the PUT endpoint to update these objects, we simply
+	// destroy any that have changed, and create new ones with the updated
+	// values. This is how Terraform works with nested sub resources, we only
+	// get the full diff not a partial set item diff. Because this is done
+	// on a new version of the Fastly Service configuration, this is considered safe
+
+	oc, nc := d.GetChange("condition")
+	if oc == nil {
+		oc = new(schema.Set)
+	}
+	if nc == nil {
+		nc = new(schema.Set)
+	}
+
+	ocs := oc.(*schema.Set)
+	ncs := nc.(*schema.Set)
+	removeConditions := ocs.Difference(ncs).List()
+	addConditions := ncs.Difference(ocs).List()
+
+	// DELETE old Conditions
+	for _, cRaw := range removeConditions {
+		cf := cRaw.(map[string]interface{})
+		opts := fastly.DeleteConditionInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    cf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Conditions Removal opts: %#v", opts)
+		err := conn.DeleteCondition(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new Conditions
+	for _, cRaw := range addConditions {
+		cf := cRaw.(map[string]interface{})
+		opts := fastly.CreateConditionInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    cf["name"].(string),
+			Type:    cf["type"].(string),
+			// need to trim leading/tailing spaces, incase the config has HEREDOC
+			// formatting and contains a trailing new line
+			Statement: strings.TrimSpace(cf["statement"].(string)),
+			Priority:  cf["priority"].(int),
+		}
+
+		log.Printf("[DEBUG] Create Conditions Opts: %#v", opts)
+		_, err := conn.CreateCondition(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

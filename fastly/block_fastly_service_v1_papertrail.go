@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var papertrailSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -46,3 +50,86 @@ var papertrailSchema = &schema.Schema{
 	},
 }
 
+func flattenPapertrails(papertrailList []*fastly.Papertrail) []map[string]interface{} {
+	var pl []map[string]interface{}
+	for _, p := range papertrailList {
+		// Convert Papertrails to a map for saving to state.
+		ns := map[string]interface{}{
+			"name":               p.Name,
+			"address":            p.Address,
+			"port":               p.Port,
+			"format":             p.Format,
+			"response_condition": p.ResponseCondition,
+			"placement":          p.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ns {
+			if v == "" {
+				delete(ns, k)
+			}
+		}
+
+		pl = append(pl, ns)
+	}
+
+	return pl
+}
+
+func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("papertrail")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removePapertrail := oss.Difference(nss).List()
+	addPapertrail := nss.Difference(oss).List()
+
+	// DELETE old papertrail configurations
+	for _, pRaw := range removePapertrail {
+		pf := pRaw.(map[string]interface{})
+		opts := fastly.DeletePapertrailInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    pf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Papertrail removal opts: %#v", opts)
+		err := conn.DeletePapertrail(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Papertrail
+	for _, pRaw := range addPapertrail {
+		pf := pRaw.(map[string]interface{})
+
+		opts := fastly.CreatePapertrailInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              pf["name"].(string),
+			Address:           pf["address"].(string),
+			Port:              uint(pf["port"].(int)),
+			Format:            pf["format"].(string),
+			ResponseCondition: pf["response_condition"].(string),
+			Placement:         pf["placement"].(string),
+		}
+
+		log.Printf("[DEBUG] Create Papertrail Opts: %#v", opts)
+		_, err := conn.CreatePapertrail(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

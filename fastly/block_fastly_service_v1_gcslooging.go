@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var gcsloogingSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -83,3 +87,97 @@ var gcsloogingSchema = &schema.Schema{
 	},
 }
 
+func flattenGCS(gcsList []*fastly.GCS) []map[string]interface{} {
+	var GCSList []map[string]interface{}
+	for _, currentGCS := range gcsList {
+		// Convert gcs to a map for saving to state.
+		GCSMapString := map[string]interface{}{
+			"name":               currentGCS.Name,
+			"email":              currentGCS.User,
+			"bucket_name":        currentGCS.Bucket,
+			"secret_key":         currentGCS.SecretKey,
+			"path":               currentGCS.Path,
+			"period":             int(currentGCS.Period),
+			"gzip_level":         int(currentGCS.GzipLevel),
+			"response_condition": currentGCS.ResponseCondition,
+			"message_type":       currentGCS.MessageType,
+			"format":             currentGCS.Format,
+			"timestamp_format":   currentGCS.TimestampFormat,
+			"placement":          currentGCS.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range GCSMapString {
+			if v == "" {
+				delete(GCSMapString, k)
+			}
+		}
+
+		GCSList = append(GCSList, GCSMapString)
+	}
+
+	return GCSList
+}
+
+func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("gcslogging")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removeGcslogging := oss.Difference(nss).List()
+	addGcslogging := nss.Difference(oss).List()
+
+	// DELETE old gcslogging configurations
+	for _, pRaw := range removeGcslogging {
+		sf := pRaw.(map[string]interface{})
+		opts := fastly.DeleteGCSInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    sf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly gcslogging removal opts: %#v", opts)
+		err := conn.DeleteGCS(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated gcslogging
+	for _, pRaw := range addGcslogging {
+		sf := pRaw.(map[string]interface{})
+		opts := fastly.CreateGCSInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              sf["name"].(string),
+			User:              sf["email"].(string),
+			Bucket:            sf["bucket_name"].(string),
+			SecretKey:         sf["secret_key"].(string),
+			Format:            sf["format"].(string),
+			Path:              sf["path"].(string),
+			Period:            uint(sf["period"].(int)),
+			GzipLevel:         uint8(sf["gzip_level"].(int)),
+			TimestampFormat:   sf["timestamp_format"].(string),
+			MessageType:       sf["message_type"].(string),
+			ResponseCondition: sf["response_condition"].(string),
+			Placement:         sf["placement"].(string),
+		}
+
+		log.Printf("[DEBUG] Create GCS Opts: %#v", opts)
+		_, err := conn.CreateGCS(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

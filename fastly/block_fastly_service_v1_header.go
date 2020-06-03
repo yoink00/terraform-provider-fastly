@@ -1,6 +1,11 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+	"strings"
+)
 
 var headerSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -83,3 +88,130 @@ var headerSchema = &schema.Schema{
 	},
 }
 
+func flattenHeaders(headerList []*fastly.Header) []map[string]interface{} {
+	var hl []map[string]interface{}
+	for _, h := range headerList {
+		// Convert Header to a map for saving to state.
+		nh := map[string]interface{}{
+			"name":               h.Name,
+			"action":             h.Action,
+			"ignore_if_set":      h.IgnoreIfSet,
+			"type":               h.Type,
+			"destination":        h.Destination,
+			"source":             h.Source,
+			"regex":              h.Regex,
+			"substitution":       h.Substitution,
+			"priority":           int(h.Priority),
+			"request_condition":  h.RequestCondition,
+			"cache_condition":    h.CacheCondition,
+			"response_condition": h.ResponseCondition,
+		}
+
+		for k, v := range nh {
+			if v == "" {
+				delete(nh, k)
+			}
+		}
+
+		hl = append(hl, nh)
+	}
+	return hl
+}
+
+func buildHeader(headerMap interface{}) (*fastly.CreateHeaderInput, error) {
+	df := headerMap.(map[string]interface{})
+	opts := fastly.CreateHeaderInput{
+		Name:              df["name"].(string),
+		IgnoreIfSet:       fastly.CBool(df["ignore_if_set"].(bool)),
+		Destination:       df["destination"].(string),
+		Priority:          uint(df["priority"].(int)),
+		Source:            df["source"].(string),
+		Regex:             df["regex"].(string),
+		Substitution:      df["substitution"].(string),
+		RequestCondition:  df["request_condition"].(string),
+		CacheCondition:    df["cache_condition"].(string),
+		ResponseCondition: df["response_condition"].(string),
+	}
+
+	act := strings.ToLower(df["action"].(string))
+	switch act {
+	case "set":
+		opts.Action = fastly.HeaderActionSet
+	case "append":
+		opts.Action = fastly.HeaderActionAppend
+	case "delete":
+		opts.Action = fastly.HeaderActionDelete
+	case "regex":
+		opts.Action = fastly.HeaderActionRegex
+	case "regex_repeat":
+		opts.Action = fastly.HeaderActionRegexRepeat
+	}
+
+	ty := strings.ToLower(df["type"].(string))
+	switch ty {
+	case "request":
+		opts.Type = fastly.HeaderTypeRequest
+	case "fetch":
+		opts.Type = fastly.HeaderTypeFetch
+	case "cache":
+		opts.Type = fastly.HeaderTypeCache
+	case "response":
+		opts.Type = fastly.HeaderTypeResponse
+	}
+
+	return &opts, nil
+}
+
+func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	oh, nh := d.GetChange("header")
+	if oh == nil {
+		oh = new(schema.Set)
+	}
+	if nh == nil {
+		nh = new(schema.Set)
+	}
+
+	ohs := oh.(*schema.Set)
+	nhs := nh.(*schema.Set)
+
+	remove := ohs.Difference(nhs).List()
+	add := nhs.Difference(ohs).List()
+
+	// Delete removed headers
+	for _, dRaw := range remove {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.DeleteHeaderInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Header removal opts: %#v", opts)
+		err := conn.DeleteHeader(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new Headers
+	for _, dRaw := range add {
+		opts, err := buildHeader(dRaw.(map[string]interface{}))
+		if err != nil {
+			log.Printf("[DEBUG] Error building Header: %s", err)
+			return err, true
+		}
+		opts.Service = d.Id()
+		opts.Version = latestVersion
+
+		log.Printf("[DEBUG] Fastly Header Addition opts: %#v", opts)
+		_, err = conn.CreateHeader(opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

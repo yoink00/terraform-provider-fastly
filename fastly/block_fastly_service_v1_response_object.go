@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var responseObjectSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -54,3 +58,88 @@ var responseObjectSchema = &schema.Schema{
 	},
 }
 
+func flattenResponseObjects(responseObjectList []*fastly.ResponseObject) []map[string]interface{} {
+	var rol []map[string]interface{}
+	for _, ro := range responseObjectList {
+		// Convert ResponseObjects to a map for saving to state.
+		nro := map[string]interface{}{
+			"name":              ro.Name,
+			"status":            ro.Status,
+			"response":          ro.Response,
+			"content":           ro.Content,
+			"content_type":      ro.ContentType,
+			"request_condition": ro.RequestCondition,
+			"cache_condition":   ro.CacheCondition,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range nro {
+			if v == "" {
+				delete(nro, k)
+			}
+		}
+
+		rol = append(rol, nro)
+	}
+
+	return rol
+}
+
+func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	or, nr := d.GetChange("response_object")
+	if or == nil {
+		or = new(schema.Set)
+	}
+	if nr == nil {
+		nr = new(schema.Set)
+	}
+
+	ors := or.(*schema.Set)
+	nrs := nr.(*schema.Set)
+	removeResponseObject := ors.Difference(nrs).List()
+	addResponseObject := nrs.Difference(ors).List()
+
+	// DELETE old response object configurations
+	for _, rRaw := range removeResponseObject {
+		rf := rRaw.(map[string]interface{})
+		opts := fastly.DeleteResponseObjectInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    rf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Response Object removal opts: %#v", opts)
+		err := conn.DeleteResponseObject(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Response Object
+	for _, rRaw := range addResponseObject {
+		rf := rRaw.(map[string]interface{})
+
+		opts := fastly.CreateResponseObjectInput{
+			Service:          d.Id(),
+			Version:          latestVersion,
+			Name:             rf["name"].(string),
+			Status:           uint(rf["status"].(int)),
+			Response:         rf["response"].(string),
+			Content:          rf["content"].(string),
+			ContentType:      rf["content_type"].(string),
+			RequestCondition: rf["request_condition"].(string),
+			CacheCondition:   rf["cache_condition"].(string),
+		}
+
+		log.Printf("[DEBUG] Create Response Object Opts: %#v", opts)
+		_, err := conn.CreateResponseObject(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

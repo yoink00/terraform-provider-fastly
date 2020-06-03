@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var sumologicSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -55,3 +59,87 @@ var sumologicSchema = &schema.Schema{
 	},
 }
 
+func flattenSumologics(sumologicList []*fastly.Sumologic) []map[string]interface{} {
+	var l []map[string]interface{}
+	for _, p := range sumologicList {
+		// Convert Sumologic to a map for saving to state.
+		ns := map[string]interface{}{
+			"name":               p.Name,
+			"url":                p.URL,
+			"format":             p.Format,
+			"response_condition": p.ResponseCondition,
+			"message_type":       p.MessageType,
+			"format_version":     int(p.FormatVersion),
+			"placement":          p.Placement,
+		}
+
+		// prune any empty values that come from the default string value in structs
+		for k, v := range ns {
+			if v == "" {
+				delete(ns, k)
+			}
+		}
+
+		l = append(l, ns)
+	}
+
+	return l
+}
+
+func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	os, ns := d.GetChange("sumologic")
+	if os == nil {
+		os = new(schema.Set)
+	}
+	if ns == nil {
+		ns = new(schema.Set)
+	}
+
+	oss := os.(*schema.Set)
+	nss := ns.(*schema.Set)
+	removeSumologic := oss.Difference(nss).List()
+	addSumologic := nss.Difference(oss).List()
+
+	// DELETE old sumologic configurations
+	for _, pRaw := range removeSumologic {
+		sf := pRaw.(map[string]interface{})
+		opts := fastly.DeleteSumologicInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    sf["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Sumologic removal opts: %#v", opts)
+		err := conn.DeleteSumologic(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new/updated Sumologic
+	for _, pRaw := range addSumologic {
+		sf := pRaw.(map[string]interface{})
+		opts := fastly.CreateSumologicInput{
+			Service:           d.Id(),
+			Version:           latestVersion,
+			Name:              sf["name"].(string),
+			URL:               sf["url"].(string),
+			Format:            sf["format"].(string),
+			FormatVersion:     sf["format_version"].(int),
+			ResponseCondition: sf["response_condition"].(string),
+			MessageType:       sf["message_type"].(string),
+			Placement:         sf["placement"].(string),
+		}
+
+		log.Printf("[DEBUG] Create Sumologic Opts: %#v", opts)
+		_, err := conn.CreateSumologic(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}

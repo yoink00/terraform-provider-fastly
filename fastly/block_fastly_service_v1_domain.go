@@ -1,6 +1,10 @@
 package fastly
 
-import "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+import (
+	"github.com/fastly/go-fastly/fastly"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"log"
+)
 
 var domainSchema = &schema.Schema{
 	Type:     schema.TypeSet,
@@ -21,3 +25,72 @@ var domainSchema = &schema.Schema{
 	},
 }
 
+func flattenDomains(list []*fastly.Domain) []map[string]interface{} {
+	dl := make([]map[string]interface{}, 0, len(list))
+
+	for _, d := range list {
+		dl = append(dl, map[string]interface{}{
+			"name":    d.Name,
+			"comment": d.Comment,
+		})
+	}
+
+	return dl
+}
+
+func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+	od, nd := d.GetChange("domain")
+	if od == nil {
+		od = new(schema.Set)
+	}
+	if nd == nil {
+		nd = new(schema.Set)
+	}
+
+	ods := od.(*schema.Set)
+	nds := nd.(*schema.Set)
+
+	remove := ods.Difference(nds).List()
+	add := nds.Difference(ods).List()
+
+	// Delete removed domains
+	for _, dRaw := range remove {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.DeleteDomainInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+		}
+
+		log.Printf("[DEBUG] Fastly Domain removal opts: %#v", opts)
+		err := conn.DeleteDomain(&opts)
+		if errRes, ok := err.(*fastly.HTTPError); ok {
+			if errRes.StatusCode != 404 {
+				return err, true
+			}
+		} else if err != nil {
+			return err, true
+		}
+	}
+
+	// POST new Domains
+	for _, dRaw := range add {
+		df := dRaw.(map[string]interface{})
+		opts := fastly.CreateDomainInput{
+			Service: d.Id(),
+			Version: latestVersion,
+			Name:    df["name"].(string),
+		}
+
+		if v, ok := df["comment"]; ok {
+			opts.Comment = v.(string)
+		}
+
+		log.Printf("[DEBUG] Fastly Domain Addition opts: %#v", opts)
+		_, err := conn.CreateDomain(&opts)
+		if err != nil {
+			return err, true
+		}
+	}
+	return nil, false
+}
