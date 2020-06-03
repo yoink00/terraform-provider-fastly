@@ -296,126 +296,110 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 
 		// Find difference in Conditions
 		if d.HasChange("condition") {
-			err, done := processCondition(d, latestVersion, conn)
-			if done {
+			if err := processCondition(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Find differences in domains
 		if d.HasChange("domain") {
-			err, done := processDomain(d, latestVersion, conn)
-			if done {
+			if err := processDomain(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Healthchecks need to be updated BEFORE backends
 		if d.HasChange("healthcheck") {
-			err, done := processHealthcheck(d, latestVersion, conn)
-			if done {
+			if err := processHealthcheck(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in backends
 		if d.HasChange("backend") {
-			err, done := processBackend(d, latestVersion, conn)
-			if done {
+			if err := processBackend(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		if d.HasChange("director") {
-			err, done := processDirector(d, latestVersion, conn)
-			if done {
+			if err := processDirector(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		if d.HasChange("header") {
-			err, done := processHeader(d, latestVersion, conn)
-			if done {
+			if err := processHeader(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Find differences in Gzips
 		if d.HasChange("gzip") {
-			err, done := procesGzip(d, latestVersion, conn)
-			if done {
+			if err := procesGzip(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in s3logging
 		if d.HasChange("s3logging") {
-			err, done := processS3logging(d, latestVersion, conn)
-			if done {
+			if err := processS3logging(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in Papertrail
 		if d.HasChange("papertrail") {
-			err, done := processPapertrail(d, latestVersion, conn)
-			if done {
+			if err := processPapertrail(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in Sumologic
 		if d.HasChange("sumologic") {
-			err, done := processSumologic(d, latestVersion, conn)
-			if done {
+			if err := processSumologic(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in gcslogging
 		if d.HasChange("gcslogging") {
-			err, done := processGcslogging(d, latestVersion, conn)
-			if done {
+			if err := processGcslogging(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in bigquerylogging
 		if d.HasChange("bigquerylogging") {
-			err, done := processBigquerylogging(d, latestVersion, conn)
-			if done {
+			if err := processBigquerylogging(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in Syslog
 		if d.HasChange("syslog") {
-			err, done := procesSyslog(d, latestVersion, conn)
-			if done {
+			if err := procesSyslog(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in Logentries
 		if d.HasChange("logentries") {
-			err, done := processLogentries(d, latestVersion, conn)
-			if done {
+			if err := processLogentries(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in Splunk logging configurations
 		if d.HasChange("splunk") {
-			err, done := processSplunk(d, latestVersion, conn)
-			if done {
+			if err := processSplunk(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in Blob Storage logging configurations
 		if d.HasChange("blobstoragelogging") {
-			err, done := processBlobstoragelogging(d, latestVersion, conn)
-			if done {
+			if err := processBlobstoragelogging(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
@@ -429,48 +413,42 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 
 		// find difference in Response Object
 		if d.HasChange("response_object") {
-			err, done := processResponseObject(d, latestVersion, conn)
-			if done {
+			if err := processResponseObject(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// find difference in request settings
 		if d.HasChange("request_setting") {
-			err, done := processRequestSetting(d, latestVersion, conn)
-			if done {
+			if err := processRequestSetting(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Find differences in VCLs
 		if d.HasChange("vcl") {
-			err, done := processVcl(d, latestVersion, conn)
-			if done {
+			if err := processVcl(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Find differences in VCL snippets
 		if d.HasChange("snippet") {
-			err, done := processSnippet(d, latestVersion, conn)
-			if done {
+			if err := processSnippet(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Find differences in VCL dynamic snippets
 		if d.HasChange("dynamicsnippet") {
-			err, done := processDynamicsnippet(d, latestVersion, conn)
-			if done {
+			if err := processDynamicsnippet(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
 
 		// Find differences in Cache Settings
 		if d.HasChange("cache_setting") {
-			err, done := processCacheSetting(d, latestVersion, conn)
-			if done {
+			if err := processCacheSetting(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
@@ -478,8 +456,7 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		// Find differences in ACLs
 		if d.HasChange("acl") {
 
-			err, done := processAcl(d, latestVersion, conn)
-			if done {
+			if err := processAcl(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
@@ -487,8 +464,7 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		// Find differences in dictionary
 		if d.HasChange("dictionary") {
 
-			err, done := processDictionary(d, latestVersion, conn)
-			if done {
+			if err := processDictionary(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}

@@ -104,7 +104,7 @@ func flattenSnippets(snippetList []*fastly.Snippet) []map[string]interface{} {
 	return sl
 }
 
-func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
 	// endpoint to update a VCL snippet, we simply destroy it and create a new one.
 	oldSnippetVal, newSnippetVal := d.GetChange("snippet")
@@ -134,10 +134,10 @@ func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 		err := conn.DeleteSnippet(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -146,7 +146,7 @@ func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 		opts, err := buildSnippet(dRaw.(map[string]interface{}))
 		if err != nil {
 			log.Printf("[DEBUG] Error building VCL Snippet: %s", err)
-			return err, true
+			return err
 		}
 		opts.Service = d.Id()
 		opts.Version = latestVersion
@@ -154,8 +154,8 @@ func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 		log.Printf("[DEBUG] Fastly VCL Snippet Addition opts: %#v", opts)
 		_, err = conn.CreateSnippet(opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

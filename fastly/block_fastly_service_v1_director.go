@@ -99,7 +99,7 @@ func flattenDirectors(directorList []*fastly.Director, directorBackendList []*fa
 	return dl
 }
 
-func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	od, nd := d.GetChange("director")
 	if od == nil {
 		od = new(schema.Set)
@@ -127,10 +127,10 @@ func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Cli
 		err := conn.DeleteDirector(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -162,7 +162,7 @@ func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Cli
 		log.Printf("[DEBUG] Director Create opts: %#v", opts)
 		_, err := conn.CreateDirector(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 
 		if v, ok := df["backends"]; ok {
@@ -178,11 +178,11 @@ func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Cli
 					log.Printf("[DEBUG] Director Backend Create opts: %#v", opts)
 					_, err := conn.CreateDirectorBackend(&opts)
 					if err != nil {
-						return err, true
+						return err
 					}
 				}
 			}
 		}
 	}
-	return nil, false
+	return nil
 }

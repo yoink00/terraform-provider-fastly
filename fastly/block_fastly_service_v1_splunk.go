@@ -98,7 +98,7 @@ func flattenSplunks(splunkList []*fastly.Splunk) []map[string]interface{} {
 	return sl
 }
 
-func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("splunk")
 	if os == nil {
 		os = new(schema.Set)
@@ -126,10 +126,10 @@ func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		err := conn.DeleteSplunk(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -153,8 +153,8 @@ func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		log.Printf("[DEBUG] Splunk create opts: %#v", opts)
 		_, err := conn.CreateSplunk(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

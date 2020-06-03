@@ -104,7 +104,7 @@ func flattenDynamicSnippets(dynamicSnippetList []*fastly.Snippet) []map[string]i
 	return sl
 }
 
-func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
 	// endpoint to update a VCL dynamic snippet, we simply destroy it and create a new one.
 	oldDynamicSnippetVal, newDynamicSnippetVal := d.GetChange("dynamicsnippet")
@@ -134,10 +134,10 @@ func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fast
 		err := conn.DeleteSnippet(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -146,7 +146,7 @@ func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fast
 		opts, err := buildDynamicSnippet(dRaw.(map[string]interface{}))
 		if err != nil {
 			log.Printf("[DEBUG] Error building VCL Dynamic Snippet: %s", err)
-			return err, true
+			return err
 		}
 		opts.Service = d.Id()
 		opts.Version = latestVersion
@@ -154,8 +154,8 @@ func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fast
 		log.Printf("[DEBUG] Fastly VCL Dynamic Snippet Addition opts: %#v", opts)
 		_, err = conn.CreateSnippet(opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

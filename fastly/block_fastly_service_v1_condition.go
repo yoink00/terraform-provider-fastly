@@ -61,7 +61,7 @@ func flattenConditions(conditionList []*fastly.Condition) []map[string]interface
 	return cl
 }
 
-func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: we don't utilize the PUT endpoint to update these objects, we simply
 	// destroy any that have changed, and create new ones with the updated
 	// values. This is how Terraform works with nested sub resources, we only
@@ -94,10 +94,10 @@ func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		err := conn.DeleteCondition(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -118,8 +118,8 @@ func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		log.Printf("[DEBUG] Create Conditions Opts: %#v", opts)
 		_, err := conn.CreateCondition(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

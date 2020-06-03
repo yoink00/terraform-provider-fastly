@@ -85,7 +85,7 @@ func flattenResponseObjects(responseObjectList []*fastly.ResponseObject) []map[s
 	return rol
 }
 
-func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	or, nr := d.GetChange("response_object")
 	if or == nil {
 		or = new(schema.Set)
@@ -112,10 +112,10 @@ func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fast
 		err := conn.DeleteResponseObject(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -138,8 +138,8 @@ func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fast
 		log.Printf("[DEBUG] Create Response Object Opts: %#v", opts)
 		_, err := conn.CreateResponseObject(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

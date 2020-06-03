@@ -136,7 +136,7 @@ func flattenSyslogs(syslogList []*fastly.Syslog) []map[string]interface{} {
 	return pl
 }
 
-func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("syslog")
 	if os == nil {
 		os = new(schema.Set)
@@ -163,10 +163,10 @@ func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client
 		err := conn.DeleteSyslog(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -196,8 +196,8 @@ func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client
 		log.Printf("[DEBUG] Create Syslog Opts: %#v", opts)
 		_, err := conn.CreateSyslog(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

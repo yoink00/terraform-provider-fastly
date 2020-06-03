@@ -38,7 +38,7 @@ func flattenDomains(list []*fastly.Domain) []map[string]interface{} {
 	return dl
 }
 
-func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	od, nd := d.GetChange("domain")
 	if od == nil {
 		od = new(schema.Set)
@@ -66,10 +66,10 @@ func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		err := conn.DeleteDomain(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -89,8 +89,8 @@ func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		log.Printf("[DEBUG] Fastly Domain Addition opts: %#v", opts)
 		_, err := conn.CreateDomain(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

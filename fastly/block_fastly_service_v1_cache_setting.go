@@ -94,7 +94,7 @@ func flattenCacheSettings(csList []*fastly.CacheSetting) []map[string]interface{
 	return csl
 }
 
-func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oc, nc := d.GetChange("cache_setting")
 	if oc == nil {
 		oc = new(schema.Set)
@@ -122,10 +122,10 @@ func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly
 		err := conn.DeleteCacheSetting(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -134,7 +134,7 @@ func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly
 		opts, err := buildCacheSetting(dRaw.(map[string]interface{}))
 		if err != nil {
 			log.Printf("[DEBUG] Error building Cache Setting: %s", err)
-			return err, true
+			return err
 		}
 		opts.Service = d.Id()
 		opts.Version = latestVersion
@@ -142,8 +142,8 @@ func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly
 		log.Printf("[DEBUG] Fastly Cache Settings Addition opts: %#v", opts)
 		_, err = conn.CreateCacheSetting(opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

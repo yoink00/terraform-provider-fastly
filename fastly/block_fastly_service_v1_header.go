@@ -162,7 +162,7 @@ func buildHeader(headerMap interface{}) (*fastly.CreateHeaderInput, error) {
 	return &opts, nil
 }
 
-func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oh, nh := d.GetChange("header")
 	if oh == nil {
 		oh = new(schema.Set)
@@ -190,10 +190,10 @@ func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		err := conn.DeleteHeader(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -202,7 +202,7 @@ func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		opts, err := buildHeader(dRaw.(map[string]interface{}))
 		if err != nil {
 			log.Printf("[DEBUG] Error building Header: %s", err)
-			return err, true
+			return err
 		}
 		opts.Service = d.Id()
 		opts.Version = latestVersion
@@ -210,8 +210,8 @@ func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 		log.Printf("[DEBUG] Fastly Header Addition opts: %#v", opts)
 		_, err = conn.CreateHeader(opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

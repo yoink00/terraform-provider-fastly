@@ -76,7 +76,7 @@ func flattenPapertrails(papertrailList []*fastly.Papertrail) []map[string]interf
 	return pl
 }
 
-func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("papertrail")
 	if os == nil {
 		os = new(schema.Set)
@@ -103,10 +103,10 @@ func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		err := conn.DeletePapertrail(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -128,8 +128,8 @@ func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		log.Printf("[DEBUG] Create Papertrail Opts: %#v", opts)
 		_, err := conn.CreatePapertrail(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

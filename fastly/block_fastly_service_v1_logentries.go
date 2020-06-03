@@ -92,7 +92,7 @@ func flattenLogentries(logentriesList []*fastly.Logentries) []map[string]interfa
 	return LEList
 }
 
-func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("logentries")
 	if os == nil {
 		os = new(schema.Set)
@@ -119,10 +119,10 @@ func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		err := conn.DeleteLogentries(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -146,8 +146,8 @@ func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		log.Printf("[DEBUG] Create Logentries Opts: %#v", opts)
 		_, err := conn.CreateLogentries(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

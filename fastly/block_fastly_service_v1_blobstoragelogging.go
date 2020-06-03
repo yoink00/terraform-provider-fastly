@@ -132,7 +132,7 @@ func flattenBlobStorages(blobStorageList []*fastly.BlobStorage) []map[string]int
 	return bsl
 }
 
-func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	obsl, nbsl := d.GetChange("blobstoragelogging")
 	if obsl == nil {
 		obsl = new(schema.Set)
@@ -160,10 +160,10 @@ func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *
 		err := conn.DeleteBlobStorage(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -192,8 +192,8 @@ func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *
 		log.Printf("[DEBUG] Blob Storage logging create opts: %#v", opts)
 		_, err := conn.CreateBlobStorage(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

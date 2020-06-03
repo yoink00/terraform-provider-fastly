@@ -86,7 +86,7 @@ func flattenSumologics(sumologicList []*fastly.Sumologic) []map[string]interface
 	return l
 }
 
-func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("sumologic")
 	if os == nil {
 		os = new(schema.Set)
@@ -113,10 +113,10 @@ func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		err := conn.DeleteSumologic(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -138,8 +138,8 @@ func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		log.Printf("[DEBUG] Create Sumologic Opts: %#v", opts)
 		_, err := conn.CreateSumologic(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

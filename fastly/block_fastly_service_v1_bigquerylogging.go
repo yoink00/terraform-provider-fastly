@@ -105,7 +105,7 @@ func flattenBigQuery(bqList []*fastly.BigQuery) []map[string]interface{} {
 	return BQList
 }
 
-func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("bigquerylogging")
 	if os == nil {
 		os = new(schema.Set)
@@ -132,10 +132,10 @@ func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fas
 		err := conn.DeleteBigQuery(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -163,8 +163,8 @@ func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fas
 		log.Printf("[DEBUG] Create bigquerylogging opts: %#v", opts)
 		_, err := conn.CreateBigQuery(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

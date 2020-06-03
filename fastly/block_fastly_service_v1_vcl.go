@@ -81,7 +81,7 @@ func validateVCLs(d *schema.ResourceData) error {
 	return nil
 }
 
-func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
 	// endpoint to update a VCL, we simply destroy it and create a new one.
 	oldVCLVal, newVCLVal := d.GetChange("vcl")
@@ -111,10 +111,10 @@ func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 		err := conn.DeleteVCL(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 	// POST new VCL configurations
@@ -130,7 +130,7 @@ func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 		log.Printf("[DEBUG] Fastly VCL Addition opts: %#v", opts)
 		_, err := conn.CreateVCL(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 
 		// if this new VCL is the main
@@ -143,10 +143,10 @@ func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 			log.Printf("[DEBUG] Fastly VCL activation opts: %#v", opts)
 			_, err := conn.ActivateVCL(&opts)
 			if err != nil {
-				return err, true
+				return err
 			}
 
 		}
 	}
-	return nil, false
+	return nil
 }

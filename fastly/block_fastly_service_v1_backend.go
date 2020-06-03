@@ -206,7 +206,7 @@ func flattenBackends(backendList []*fastly.Backend) []map[string]interface{} {
 	return bl
 }
 
-func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	ob, nb := d.GetChange("backend")
 	if ob == nil {
 		ob = new(schema.Set)
@@ -233,10 +233,10 @@ func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 		err := conn.DeleteBackend(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -276,8 +276,8 @@ func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 		log.Printf("[DEBUG] Create Backend Opts: %#v", opts)
 		_, err := conn.CreateBackend(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

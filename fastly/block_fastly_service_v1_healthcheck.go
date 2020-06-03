@@ -111,7 +111,7 @@ func flattenHealthchecks(healthcheckList []*fastly.HealthCheck) []map[string]int
 	return hl
 }
 
-func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oh, nh := d.GetChange("healthcheck")
 	if oh == nil {
 		oh = new(schema.Set)
@@ -138,10 +138,10 @@ func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.
 		err := conn.DeleteHealthCheck(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -168,8 +168,8 @@ func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.
 		log.Printf("[DEBUG] Create Healthcheck Opts: %#v", opts)
 		_, err := conn.CreateHealthCheck(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

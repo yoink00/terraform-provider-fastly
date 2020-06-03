@@ -152,7 +152,7 @@ func buildRequestSetting(requestSettingMap interface{}) (*fastly.CreateRequestSe
 	return &opts, nil
 }
 
-func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("request_setting")
 	if os == nil {
 		os = new(schema.Set)
@@ -179,10 +179,10 @@ func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fast
 		err := conn.DeleteRequestSetting(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -191,7 +191,7 @@ func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fast
 		opts, err := buildRequestSetting(sRaw.(map[string]interface{}))
 		if err != nil {
 			log.Printf("[DEBUG] Error building Requset Setting: %s", err)
-			return err, true
+			return err
 		}
 		opts.Service = d.Id()
 		opts.Version = latestVersion
@@ -199,8 +199,8 @@ func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fast
 		log.Printf("[DEBUG] Create Request Setting Opts: %#v", opts)
 		_, err = conn.CreateRequestSetting(opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

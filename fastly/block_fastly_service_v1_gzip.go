@@ -81,7 +81,7 @@ func flattenGzips(gzipsList []*fastly.Gzip) []map[string]interface{} {
 	return gl
 }
 
-func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	og, ng := d.GetChange("gzip")
 	if og == nil {
 		og = new(schema.Set)
@@ -109,10 +109,10 @@ func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 		err := conn.DeleteGzip(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -149,8 +149,8 @@ func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 		log.Printf("[DEBUG] Fastly Gzip Addition opts: %#v", opts)
 		_, err := conn.CreateGzip(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

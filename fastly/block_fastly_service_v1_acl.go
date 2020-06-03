@@ -74,7 +74,7 @@ func flattenACLs(aclList []*fastly.ACL) []map[string]interface{} {
 	return al
 }
 
-func processAcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processAcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oldACLVal, newACLVal := d.GetChange("acl")
 	if oldACLVal == nil {
 		oldACLVal = new(schema.Set)
@@ -103,10 +103,10 @@ func processAcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -122,8 +122,8 @@ func processAcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 		log.Printf("[DEBUG] Fastly ACL creation opts: %#v", opts)
 		_, err := conn.CreateACL(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

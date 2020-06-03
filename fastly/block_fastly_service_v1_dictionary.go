@@ -66,7 +66,7 @@ func flattenDictionaries(dictList []*fastly.Dictionary) []map[string]interface{}
 	return dl
 }
 
-func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oldDictVal, newDictVal := d.GetChange("dictionary")
 
 	if oldDictVal == nil {
@@ -95,10 +95,10 @@ func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		err := conn.DeleteDictionary(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -107,7 +107,7 @@ func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		opts, err := buildDictionary(dRaw.(map[string]interface{}))
 		if err != nil {
 			log.Printf("[DEBUG] Error building Dicitionary: %s", err)
-			return err, true
+			return err
 		}
 		opts.Service = d.Id()
 		opts.Version = latestVersion
@@ -115,8 +115,8 @@ func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		log.Printf("[DEBUG] Fastly Dictionary Addition opts: %#v", opts)
 		_, err = conn.CreateDictionary(opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

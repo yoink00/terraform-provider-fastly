@@ -119,7 +119,7 @@ func flattenGCS(gcsList []*fastly.GCS) []map[string]interface{} {
 	return GCSList
 }
 
-func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("gcslogging")
 	if os == nil {
 		os = new(schema.Set)
@@ -146,10 +146,10 @@ func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		err := conn.DeleteGCS(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -176,8 +176,8 @@ func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		log.Printf("[DEBUG] Create GCS Opts: %#v", opts)
 		_, err := conn.CreateGCS(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }

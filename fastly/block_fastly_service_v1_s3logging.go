@@ -155,7 +155,7 @@ func flattenS3s(s3List []*fastly.S3) []map[string]interface{} {
 	return sl
 }
 
-func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) (error, bool) {
+func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("s3logging")
 	if os == nil {
 		os = new(schema.Set)
@@ -182,10 +182,10 @@ func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		err := conn.DeleteS3(&opts)
 		if errRes, ok := err.(*fastly.HTTPError); ok {
 			if errRes.StatusCode != 404 {
-				return err, true
+				return err
 			}
 		} else if err != nil {
-			return err, true
+			return err
 		}
 	}
 
@@ -197,7 +197,7 @@ func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		// if any of these are empty
 		for _, sk := range []string{"s3_access_key", "s3_secret_key"} {
 			if sf[sk].(string) == "" {
-				return fmt.Errorf("[ERR] No %s found for S3 Log stream setup for Service (%s)", sk, d.Id()), true
+				return fmt.Errorf("[ERR] No %s found for S3 Log stream setup for Service (%s)", sk, d.Id())
 			}
 		}
 
@@ -240,8 +240,8 @@ func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 		log.Printf("[DEBUG] Create S3 Logging Opts: %#v", opts)
 		_, err := conn.CreateS3(&opts)
 		if err != nil {
-			return err, true
+			return err
 		}
 	}
-	return nil, false
+	return nil
 }
