@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -201,6 +202,26 @@ func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fast
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readRequestSetting(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh Request Settings
+	log.Printf("[DEBUG] Refreshing Request Settings for (%s)", d.Id())
+	rsList, err := conn.ListRequestSettings(&fastly.ListRequestSettingsInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Request Settings for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	rl := flattenRequestSettings(rsList)
+
+	if err := d.Set("request_setting", rl); err != nil {
+		log.Printf("[WARN] Error setting Request Settings for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -194,6 +195,26 @@ func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readBlogstoragelogging(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh Blob Storage Logging
+	log.Printf("[DEBUG] Refreshing Blob Storages for (%s)", d.Id())
+	blobStorageList, err := conn.ListBlobStorages(&fastly.ListBlobStoragesInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Blob Storages for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	bsl := flattenBlobStorages(blobStorageList)
+
+	if err := d.Set("blobstoragelogging", bsl); err != nil {
+		log.Printf("[WARN] Error setting Blob Storages for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

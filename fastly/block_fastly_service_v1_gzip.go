@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -151,6 +152,26 @@ func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readGzip(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh gzips
+	log.Printf("[DEBUG] Refreshing Gzips for (%s)", d.Id())
+	gzipsList, err := conn.ListGzips(&fastly.ListGzipsInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Gzips for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	gl := flattenGzips(gzipsList)
+
+	if err := d.Set("gzip", gl); err != nil {
+		log.Printf("[WARN] Error setting Gzips for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -148,6 +149,26 @@ func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readLogentries(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh Logentries Logging
+	log.Printf("[DEBUG] Refreshing Logentries for (%s)", d.Id())
+	logentriesList, err := conn.ListLogentries(&fastly.ListLogentriesInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Logentries for (%s), version (%d): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	lel := flattenLogentries(logentriesList)
+
+	if err := d.Set("logentries", lel); err != nil {
+		log.Printf("[WARN] Error setting Logentries for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

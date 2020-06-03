@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -117,6 +118,25 @@ func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readDictionary(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh Dictionaries
+	log.Printf("[DEBUG] Refreshing Dictionaries for (%s)", d.Id())
+	dictList, err := conn.ListDictionaries(&fastly.ListDictionariesInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Dictionaries for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	dict := flattenDictionaries(dictList)
+
+	if err := d.Set("dictionary", dict); err != nil {
+		log.Printf("[WARN] Error setting Dictionary for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

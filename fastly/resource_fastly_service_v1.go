@@ -554,276 +554,64 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf("[ERR] Error looking up Version settings for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
 		}
 
-		// TODO: update go-fastly to support an ActiveVersion struct, which contains
-		// domain and backend info in the response. Here we do 2 additional queries
-		// to find out that info
-		log.Printf("[DEBUG] Refreshing Domains for (%s)", d.Id())
-		domainList, err := conn.ListDomains(&gofastly.ListDomainsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Domains for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readDomain(d, conn, s); err != nil {
+			return err
 		}
 
-		// Refresh Domains
-		dl := flattenDomains(domainList)
-
-		if err := d.Set("domain", dl); err != nil {
-			log.Printf("[WARN] Error setting Domains for (%s): %s", d.Id(), err)
+		if err := readBackend(d, conn, s); err != nil {
+			return err
 		}
 
-		// Refresh Backends
-		log.Printf("[DEBUG] Refreshing Backends for (%s)", d.Id())
-		backendList, err := conn.ListBackends(&gofastly.ListBackendsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Backends for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readDirector(d, conn, s); err != nil {
+			return err
 		}
 
-		bl := flattenBackends(backendList)
-
-		if err := d.Set("backend", bl); err != nil {
-			log.Printf("[WARN] Error setting Backends for (%s): %s", d.Id(), err)
+		if err := readHeader(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh directors
-		log.Printf("[DEBUG] Refreshing Directors for (%s)", d.Id())
-		directorList, err := conn.ListDirectors(&gofastly.ListDirectorsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Directors for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readGzip(d, conn, s); err != nil {
+			return err
 		}
 
-		log.Printf("[DEBUG] Refreshing Director Backends for (%s)", d.Id())
-		var directorBackendList []*gofastly.DirectorBackend
-
-		for _, director := range directorList {
-			for _, backend := range backendList {
-				directorBackendGet, err := conn.GetDirectorBackend(&gofastly.GetDirectorBackendInput{
-					Service:  d.Id(),
-					Version:  s.ActiveVersion.Number,
-					Director: director.Name,
-					Backend:  backend.Name,
-				})
-				if err == nil {
-					directorBackendList = append(directorBackendList, directorBackendGet)
-				}
-			}
+		if err := readHealthcheck(d, conn, s); err != nil {
+			return err
 		}
 
-		dirl := flattenDirectors(directorList, directorBackendList)
-
-		if err := d.Set("director", dirl); err != nil {
-			log.Printf("[WARN] Error setting Directors for (%s): %s", d.Id(), err)
+		if err := readS3logging(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh headers
-		log.Printf("[DEBUG] Refreshing Headers for (%s)", d.Id())
-		headerList, err := conn.ListHeaders(&gofastly.ListHeadersInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Headers for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readPapertrail(d, conn, s); err != nil {
+			return err
 		}
 
-		hl := flattenHeaders(headerList)
-
-		if err := d.Set("header", hl); err != nil {
-			log.Printf("[WARN] Error setting Headers for (%s): %s", d.Id(), err)
+		if err := readSumologic(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh gzips
-		log.Printf("[DEBUG] Refreshing Gzips for (%s)", d.Id())
-		gzipsList, err := conn.ListGzips(&gofastly.ListGzipsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Gzips for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readGcslogging(d, conn, s); err != nil {
+			return err
 		}
 
-		gl := flattenGzips(gzipsList)
-
-		if err := d.Set("gzip", gl); err != nil {
-			log.Printf("[WARN] Error setting Gzips for (%s): %s", d.Id(), err)
+		if err := readBigquerylogging(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh Healthcheck
-		log.Printf("[DEBUG] Refreshing Healthcheck for (%s)", d.Id())
-		healthcheckList, err := conn.ListHealthChecks(&gofastly.ListHealthChecksInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Healthcheck for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readSyslog(d, conn, s); err != nil {
+			return err
 		}
 
-		hcl := flattenHealthchecks(healthcheckList)
-
-		if err := d.Set("healthcheck", hcl); err != nil {
-			log.Printf("[WARN] Error setting Healthcheck for (%s): %s", d.Id(), err)
+		if err := readLogentries(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh S3 Logging
-		log.Printf("[DEBUG] Refreshing S3 Logging for (%s)", d.Id())
-		s3List, err := conn.ListS3s(&gofastly.ListS3sInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up S3 Logging for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readSplunk(d, conn, s); err != nil {
+			return err
 		}
 
-		sl := flattenS3s(s3List)
-
-		if err := d.Set("s3logging", sl); err != nil {
-			log.Printf("[WARN] Error setting S3 Logging for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Papertrail Logging
-		log.Printf("[DEBUG] Refreshing Papertrail for (%s)", d.Id())
-		papertrailList, err := conn.ListPapertrails(&gofastly.ListPapertrailsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Papertrail for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		pl := flattenPapertrails(papertrailList)
-
-		if err := d.Set("papertrail", pl); err != nil {
-			log.Printf("[WARN] Error setting Papertrail for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Sumologic Logging
-		log.Printf("[DEBUG] Refreshing Sumologic for (%s)", d.Id())
-		sumologicList, err := conn.ListSumologics(&gofastly.ListSumologicsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Sumologic for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		sul := flattenSumologics(sumologicList)
-		if err := d.Set("sumologic", sul); err != nil {
-			log.Printf("[WARN] Error setting Sumologic for (%s): %s", d.Id(), err)
-		}
-
-		// refresh GCS Logging
-		log.Printf("[DEBUG] Refreshing GCS for (%s)", d.Id())
-		GCSList, err := conn.ListGCSs(&gofastly.ListGCSsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up GCS for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		gcsl := flattenGCS(GCSList)
-		if err := d.Set("gcslogging", gcsl); err != nil {
-			log.Printf("[WARN] Error setting gcs for (%s): %s", d.Id(), err)
-		}
-
-		// refresh BigQuery Logging
-		log.Printf("[DEBUG] Refreshing BigQuery for (%s)", d.Id())
-		BQList, err := conn.ListBigQueries(&gofastly.ListBigQueriesInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up BigQuery logging for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		bql := flattenBigQuery(BQList)
-		if err := d.Set("bigquerylogging", bql); err != nil {
-			log.Printf("[WARN] Error setting bigquerylogging for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Syslog Logging
-		log.Printf("[DEBUG] Refreshing Syslog for (%s)", d.Id())
-		syslogList, err := conn.ListSyslogs(&gofastly.ListSyslogsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Syslog for (%s), version (%d): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		sll := flattenSyslogs(syslogList)
-
-		if err := d.Set("syslog", sll); err != nil {
-			log.Printf("[WARN] Error setting Syslog for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Logentries Logging
-		log.Printf("[DEBUG] Refreshing Logentries for (%s)", d.Id())
-		logentriesList, err := conn.ListLogentries(&gofastly.ListLogentriesInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Logentries for (%s), version (%d): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		lel := flattenLogentries(logentriesList)
-
-		if err := d.Set("logentries", lel); err != nil {
-			log.Printf("[WARN] Error setting Logentries for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Splunk Logging
-		log.Printf("[DEBUG] Refreshing Splunks for (%s)", d.Id())
-		splunkList, err := conn.ListSplunks(&gofastly.ListSplunksInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Splunks for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		spl := flattenSplunks(splunkList)
-
-		if err := d.Set("splunk", spl); err != nil {
-			log.Printf("[WARN] Error setting Splunks for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Blob Storage Logging
-		log.Printf("[DEBUG] Refreshing Blob Storages for (%s)", d.Id())
-		blobStorageList, err := conn.ListBlobStorages(&gofastly.ListBlobStoragesInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Blob Storages for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		bsl := flattenBlobStorages(blobStorageList)
-
-		if err := d.Set("blobstoragelogging", bsl); err != nil {
-			log.Printf("[WARN] Error setting Blob Storages for (%s): %s", d.Id(), err)
+		if err := readBlogstoragelogging(d, conn, s); err != nil {
+			return err
 		}
 
 		// Refresh HTTPS
@@ -831,141 +619,40 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			return err
 		}
 
-		// refresh Response Objects
-		log.Printf("[DEBUG] Refreshing Response Object for (%s)", d.Id())
-		responseObjectList, err := conn.ListResponseObjects(&gofastly.ListResponseObjectsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Response Object for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readResponseObject(d, conn, s); err != nil {
+			return err
 		}
 
-		rol := flattenResponseObjects(responseObjectList)
-
-		if err := d.Set("response_object", rol); err != nil {
-			log.Printf("[WARN] Error setting Response Object for (%s): %s", d.Id(), err)
+		if err := readCondition(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh Conditions
-		log.Printf("[DEBUG] Refreshing Conditions for (%s)", d.Id())
-		conditionList, err := conn.ListConditions(&gofastly.ListConditionsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Conditions for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readRequestSetting(d, conn, s); err != nil {
+			return err
 		}
 
-		cl := flattenConditions(conditionList)
-
-		if err := d.Set("condition", cl); err != nil {
-			log.Printf("[WARN] Error setting Conditions for (%s): %s", d.Id(), err)
+		if err := readVcl(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh Request Settings
-		log.Printf("[DEBUG] Refreshing Request Settings for (%s)", d.Id())
-		rsList, err := conn.ListRequestSettings(&gofastly.ListRequestSettingsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Request Settings for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readACL(d, conn, s); err != nil {
+			return err
 		}
 
-		rl := flattenRequestSettings(rsList)
-
-		if err := d.Set("request_setting", rl); err != nil {
-			log.Printf("[WARN] Error setting Request Settings for (%s): %s", d.Id(), err)
+		if err := readSnippet(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh VCLs
-		log.Printf("[DEBUG] Refreshing VCLs for (%s)", d.Id())
-		vclList, err := conn.ListVCLs(&gofastly.ListVCLsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up VCLs for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+		if err := readDynamicsnippet(d, conn, s); err != nil {
+			return err
 		}
 
-		vl := flattenVCLs(vclList)
-
-		if err := d.Set("vcl", vl); err != nil {
-			log.Printf("[WARN] Error setting VCLs for (%s): %s", d.Id(), err)
+		if err := readCacheSettings(d, conn, s); err != nil {
+			return err
 		}
 
-		// refresh ACLs
-		log.Printf("[DEBUG] Refreshing ACLs for (%s)", d.Id())
-		aclList, err := conn.ListACLs(&gofastly.ListACLsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up ACLs for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		al := flattenACLs(aclList)
-
-		if err := d.Set("acl", al); err != nil {
-			log.Printf("[WARN] Error setting ACLs for (%s): %s", d.Id(), err)
-		}
-
-		// refresh VCL Snippets
-		log.Printf("[DEBUG] Refreshing VCL Snippets for (%s)", d.Id())
-		snippetList, err := conn.ListSnippets(&gofastly.ListSnippetsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up VCL Snippets for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		vsl := flattenSnippets(snippetList)
-
-		if err := d.Set("snippet", vsl); err != nil {
-			log.Printf("[WARN] Error setting VCL Snippets for (%s): %s", d.Id(), err)
-		}
-
-		dynamicSnippets := flattenDynamicSnippets(snippetList)
-
-		if err := d.Set("dynamicsnippet", dynamicSnippets); err != nil {
-			log.Printf("[WARN] Error setting VCL Dynamic Snippets for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Cache Settings
-		log.Printf("[DEBUG] Refreshing Cache Settings for (%s)", d.Id())
-		cslList, err := conn.ListCacheSettings(&gofastly.ListCacheSettingsInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Cache Settings for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		csl := flattenCacheSettings(cslList)
-
-		if err := d.Set("cache_setting", csl); err != nil {
-			log.Printf("[WARN] Error setting Cache Settings for (%s): %s", d.Id(), err)
-		}
-
-		// refresh Dictionaries
-		log.Printf("[DEBUG] Refreshing Dictionaries for (%s)", d.Id())
-		dictList, err := conn.ListDictionaries(&gofastly.ListDictionariesInput{
-			Service: d.Id(),
-			Version: s.ActiveVersion.Number,
-		})
-		if err != nil {
-			return fmt.Errorf("[ERR] Error looking up Dictionaries for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
-		}
-
-		dict := flattenDictionaries(dictList)
-
-		if err := d.Set("dictionary", dict); err != nil {
-			log.Printf("[WARN] Error setting Dictionary for (%s): %s", d.Id(), err)
+		if err := readDictionary(d, conn, s); err != nil {
+			return err
 		}
 
 	} else {

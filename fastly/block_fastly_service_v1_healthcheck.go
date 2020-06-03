@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -170,6 +171,26 @@ func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readHealthcheck(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh Healthcheck
+	log.Printf("[DEBUG] Refreshing Healthcheck for (%s)", d.Id())
+	healthcheckList, err := conn.ListHealthChecks(&fastly.ListHealthChecksInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Healthcheck for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	hcl := flattenHealthchecks(healthcheckList)
+
+	if err := d.Set("healthcheck", hcl); err != nil {
+		log.Printf("[WARN] Error setting Healthcheck for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

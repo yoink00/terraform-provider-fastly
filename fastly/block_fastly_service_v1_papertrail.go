@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -130,6 +131,26 @@ func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readPapertrail(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh Papertrail Logging
+	log.Printf("[DEBUG] Refreshing Papertrail for (%s)", d.Id())
+	papertrailList, err := conn.ListPapertrails(&fastly.ListPapertrailsInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Papertrail for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	pl := flattenPapertrails(papertrailList)
+
+	if err := d.Set("papertrail", pl); err != nil {
+		log.Printf("[WARN] Error setting Papertrail for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

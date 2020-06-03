@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -183,6 +184,52 @@ func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Cli
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func readDirector(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh directors
+	backendList, err := conn.ListBackends(&fastly.ListBackendsInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Backends for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	log.Printf("[DEBUG] Refreshing Directors for (%s)", d.Id())
+	directorList, err := conn.ListDirectors(&fastly.ListDirectorsInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up Directors for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	log.Printf("[DEBUG] Refreshing Director Backends for (%s)", d.Id())
+	var directorBackendList []*fastly.DirectorBackend
+
+	for _, director := range directorList {
+		for _, backend := range backendList {
+			directorBackendGet, err := conn.GetDirectorBackend(&fastly.GetDirectorBackendInput{
+				Service:  d.Id(),
+				Version:  s.ActiveVersion.Number,
+				Director: director.Name,
+				Backend:  backend.Name,
+			})
+			if err == nil {
+				directorBackendList = append(directorBackendList, directorBackendGet)
+			}
+		}
+	}
+
+	dirl := flattenDirectors(directorList, directorBackendList)
+
+	if err := d.Set("director", dirl); err != nil {
+		log.Printf("[WARN] Error setting Directors for (%s): %s", d.Id(), err)
 	}
 	return nil
 }

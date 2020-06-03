@@ -1,6 +1,7 @@
 package fastly
 
 import (
+	"fmt"
 	"github.com/fastly/go-fastly/fastly"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"log"
@@ -178,6 +179,25 @@ func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.C
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func readGcslogging(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+	// refresh GCS Logging
+	log.Printf("[DEBUG] Refreshing GCS for (%s)", d.Id())
+	GCSList, err := conn.ListGCSs(&fastly.ListGCSsInput{
+		Service: d.Id(),
+		Version: s.ActiveVersion.Number,
+	})
+
+	if err != nil {
+		return fmt.Errorf("[ERR] Error looking up GCS for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
+	}
+
+	gcsl := flattenGCS(GCSList)
+	if err := d.Set("gcslogging", gcsl); err != nil {
+		log.Printf("[WARN] Error setting gcs for (%s): %s", d.Id(), err)
 	}
 	return nil
 }
