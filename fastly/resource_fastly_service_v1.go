@@ -12,12 +12,27 @@ import (
 
 var fastlyNoServiceFoundErr = errors.New("No matching Fastly Service found")
 
-func resourceServiceV1() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceServiceV1Create,
-		Read:   resourceServiceV1Read,
-		Update: resourceServiceV1Update,
-		Delete: resourceServiceV1Delete,
+var vclService = &DefaultServiceDefinition{
+	Type: "vcl",
+	Attributes: []AttributeHandler{
+		NewBackend(),
+		NewACL(),
+	},
+}
+
+var wasmService = &DefaultServiceDefinition{
+	Type: "wasm",
+	Attributes: []AttributeHandler{
+		NewBackend(),
+	},
+}
+
+func resourceServiceV1(serviceDef ServiceDefinition) *schema.Resource {
+	s := &schema.Resource{
+		Create: resourceCreate(serviceDef),
+		Read:   resourceRead(serviceDef),
+		Update: resourceUpdate(serviceDef),
+		Delete: resourceDelete(serviceDef),
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -114,13 +129,40 @@ func resourceServiceV1() *schema.Resource {
 			"vcl":                vclSchema,
 			"snippet":            snippetSchema,
 			"dynamicsnippet":     dynamicsnippetSchema,
-			"acl":                aclSchema,
 			"dictionary":         dictionarySchema,
 		},
 	}
+	for _, attrib := range serviceDef.GetAttributeHandler() {
+		s.Schema[attrib.GetKey()] = attrib.GetSchema()
+	}
+	return s
 }
 
-func resourceServiceV1Create(d *schema.ResourceData, meta interface{}) error {
+func resourceCreate(serviceDef ServiceDefinition) schema.CreateFunc {
+	return func(data *schema.ResourceData, i interface{}) error {
+		return resourceServiceV1Create(data, i, serviceDef)
+	}
+}
+
+func resourceRead(serviceDef ServiceDefinition) schema.ReadFunc {
+	return func(data *schema.ResourceData, i interface{}) error {
+		return resourceServiceV1Read(data, i, serviceDef)
+	}
+}
+
+func resourceUpdate(serviceDef ServiceDefinition) schema.UpdateFunc {
+	return func(data *schema.ResourceData, i interface{}) error {
+		return resourceServiceV1Update(data, i, serviceDef)
+	}
+}
+
+func resourceDelete(serviceDef ServiceDefinition) schema.DeleteFunc {
+	return func(data *schema.ResourceData, i interface{}) error {
+		return resourceServiceV1Delete(data, i, serviceDef)
+	}
+}
+
+func resourceServiceV1Create(d *schema.ResourceData, meta interface{}, serviceDef ServiceDefinition) error {
 	if err := validateVCLs(d); err != nil {
 		return err
 	}
@@ -129,6 +171,7 @@ func resourceServiceV1Create(d *schema.ResourceData, meta interface{}) error {
 	service, err := conn.CreateService(&gofastly.CreateServiceInput{
 		Name:    d.Get("name").(string),
 		Comment: d.Get("comment").(string),
+		Type: serviceDef.GetType(),
 	})
 
 	if err != nil {
@@ -136,10 +179,10 @@ func resourceServiceV1Create(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.SetId(service.ID)
-	return resourceServiceV1Update(d, meta)
+	return resourceServiceV1Update(d, meta, serviceDef)
 }
 
-func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
+func resourceServiceV1Update(d *schema.ResourceData, meta interface{}, serviceDef ServiceDefinition) error {
 	if err := validateVCLs(d); err != nil {
 		return err
 	}
@@ -163,9 +206,13 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 	// DefaultTTL, a new Version must be created first, and updates posted to that
 	// Version. Loop these attributes and determine if we need to create a new version first
 	var needsChange bool
-	for _, v := range []string{
+	var keys []string
+	for _, attr := range serviceDef.GetAttributeHandler() {
+		keys = append(keys, attr.GetKey())
+	}
+
+	for _, key := range []string{
 		"domain",
-		"backend",
 		"default_host",
 		"default_ttl",
 		"director",
@@ -189,9 +236,12 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		"snippet",
 		"dynamicsnippet",
 		"vcl",
-		"acl",
 		"dictionary",
 	} {
+		keys = append(keys, key)
+	}
+
+	for _, v := range keys {
 		if d.HasChange(v) {
 			needsChange = true
 		}
@@ -291,6 +341,14 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 			}
 		}
 
+		for _, attrib := range serviceDef.GetAttributeHandler() {
+			if d.HasChange(attrib.GetKey()) {
+				if err := attrib.Process(d, latestVersion, conn); err != nil {
+					return err
+				}
+			}
+		}
+
 		// Conditions need to be updated first, as they can be referenced by other
 		// configuraiton objects (Backends, Request Headers, etc)
 
@@ -311,13 +369,6 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		// Healthchecks need to be updated BEFORE backends
 		if d.HasChange("healthcheck") {
 			if err := processHealthcheck(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in backends
-		if d.HasChange("backend") {
-			if err := processBackend(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
@@ -453,14 +504,6 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 			}
 		}
 
-		// Find differences in ACLs
-		if d.HasChange("acl") {
-
-			if err := processAcl(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
 		// Find differences in dictionary
 		if d.HasChange("dictionary") {
 
@@ -506,10 +549,10 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		}
 	}
 
-	return resourceServiceV1Read(d, meta)
+	return resourceServiceV1Read(d, meta, serviceDef)
 }
 
-func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
+func resourceServiceV1Read(d *schema.ResourceData, meta interface{}, serviceDef ServiceDefinition) error {
 	conn := meta.(*FastlyClient).conn
 
 	// Find the Service. Discard the service because we need the ServiceDetails,
@@ -554,11 +597,13 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			return fmt.Errorf("[ERR] Error looking up Version settings for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
 		}
 
-		if err := readDomain(d, conn, s); err != nil {
-			return err
+		for _, attribute := range serviceDef.GetAttributeHandler() {
+			if err := attribute.Read(d, conn, s); err != nil {
+				return err
+			}
 		}
 
-		if err := readBackend(d, conn, s); err != nil {
+		if err := readDomain(d, conn, s); err != nil {
 			return err
 		}
 
@@ -635,10 +680,6 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			return err
 		}
 
-		if err := readACL(d, conn, s); err != nil {
-			return err
-		}
-
 		if err := readSnippet(d, conn, s); err != nil {
 			return err
 		}
@@ -662,7 +703,7 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceServiceV1Delete(d *schema.ResourceData, meta interface{}) error {
+func resourceServiceV1Delete(d *schema.ResourceData, meta interface{}, serviceDef ServiceDefinition) error {
 	conn := meta.(*FastlyClient).conn
 
 	// Fastly will fail to delete any service with an Active Version.

@@ -28,6 +28,19 @@ var aclSchema = &schema.Schema{
 	},
 }
 
+type ACLAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewACL() AttributeHandler{
+	return &ACLAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: aclSchema,
+			key: "acl",
+		},
+	}
+}
+
 func flattenAclEntries(aclEntryList []*fastly.ACLEntry) []map[string]interface{} {
 
 	var resultList []map[string]interface{}
@@ -75,7 +88,7 @@ func flattenACLs(aclList []*fastly.ACL) []map[string]interface{} {
 	return al
 }
 
-func processAcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *ACLAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oldACLVal, newACLVal := d.GetChange("acl")
 	if oldACLVal == nil {
 		oldACLVal = new(schema.Set)
@@ -129,7 +142,7 @@ func processAcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 	return nil
 }
 
-func readACL(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *ACLAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh ACLs
 	log.Printf("[DEBUG] Refreshing ACLs for (%s)", d.Id())
 	aclList, err := conn.ListACLs(&fastly.ListACLsInput{

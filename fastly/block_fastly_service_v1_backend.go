@@ -170,6 +170,19 @@ var backendSchema = &schema.Schema{
 	},
 }
 
+type BackendAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewBackend() AttributeHandler{
+	return &BackendAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: backendSchema,
+			key: "backend",
+		},
+	}
+}
+
 func flattenBackends(backendList []*fastly.Backend) []map[string]interface{} {
 	var bl []map[string]interface{}
 	for _, b := range backendList {
@@ -207,7 +220,7 @@ func flattenBackends(backendList []*fastly.Backend) []map[string]interface{} {
 	return bl
 }
 
-func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *BackendAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	ob, nb := d.GetChange("backend")
 	if ob == nil {
 		ob = new(schema.Set)
@@ -283,7 +296,7 @@ func processBackend(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 	return nil
 }
 
-func readBackend(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *BackendAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// Refresh Backends
 	log.Printf("[DEBUG] Refreshing Backends for (%s)", d.Id())
 	backendList, err := conn.ListBackends(&fastly.ListBackendsInput{
