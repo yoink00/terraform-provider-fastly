@@ -13,6 +13,38 @@ import (
 
 var fastlyNoServiceFoundErr = errors.New("No matching Fastly Service found")
 
+
+func resourceServiceV1CustomizeDiff(diff *schema.ResourceDiff, v interface{}) error {
+
+	serviceType := diff.Get("type").(string)
+	if serviceType == "wasm" {
+		for _, key := range []string{"header","gzip","response_object","request_setting","cache_setting", "snippet",
+									 "dynamicsnippet","vcl","director","condition","acl","dictionary"} {
+			_, keyExists := diff.GetOkExists(key)
+			if keyExists {
+				return fmt.Errorf("configuration of %v is not permitted for WASM resources", key)
+			}
+		}
+
+		_, keyExists := diff.GetOkExists("default_host")
+		if keyExists {
+			return errors.New("configuration of default_host is not permitted for WASM resources")
+		}
+
+		//_, keyExists2 := diff.GetOkExists("default_ttl")
+		//if keyExists2 {
+		//	return errors.New("configuration of default_ttl is not permitted for WASM resources")
+	//	}
+
+
+	} else {
+		return fmt.Errorf("Unrecognised service type: %q", serviceType)
+	}
+
+	return nil
+}
+
+
 func resourceServiceV1() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceServiceV1Create,
@@ -23,7 +55,16 @@ func resourceServiceV1() *schema.Resource {
 			State: schema.ImportStatePassthrough,
 		},
 
+		CustomizeDiff: resourceServiceV1CustomizeDiff,
+
 		Schema: map[string]*schema.Schema{
+			"type": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Unique name for this Service",
+				ValidateFunc: validateTypeType(),
+			},
+
 			"name": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -3290,9 +3331,9 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 			Service: d.Id(),
 			Version: s.ActiveVersion.Number,
 		}
-		if settings, err := conn.GetSettings(&settingsOpts); err == nil {
-			d.Set("default_host", settings.DefaultHost)
-			d.Set("default_ttl", settings.DefaultTTL)
+		if _, err := conn.GetSettings(&settingsOpts); err == nil { //settings
+			d.Set("default_host", nil) // settings.DefaultHost)
+			d.Set("default_ttl", nil) //settings.DefaultTTL)
 		} else {
 			return fmt.Errorf("[ERR] Error looking up Version settings for (%s), version (%v): %s", d.Id(), s.ActiveVersion.Number, err)
 		}

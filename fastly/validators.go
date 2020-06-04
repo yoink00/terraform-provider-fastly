@@ -13,6 +13,13 @@ func validateLoggingFormatVersion() schema.SchemaValidateFunc {
 	return validation.IntBetween(1, 2)
 }
 
+func validateTypeType() schema.SchemaValidateFunc {
+	return validation.StringInSlice([]string{
+		"vcl",
+		"wasm",
+	}, false)
+}
+
 func validateLoggingMessageType() schema.SchemaValidateFunc {
 	return validation.StringInSlice([]string{
 		"classic",
