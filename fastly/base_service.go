@@ -19,7 +19,7 @@ type AttributeHandler interface {
 
 type DefaultServiceDefinition struct {
 	Attributes []AttributeHandler
-	Type string
+	Type       string
 }
 
 func (d *DefaultServiceDefinition) GetType() string {
@@ -32,7 +32,7 @@ func (d *DefaultServiceDefinition) GetAttributeHandler() []AttributeHandler {
 
 type DefaultAttributeHandler struct {
 	schema *schema.Schema
-	key string
+	key    string
 }
 
 func (h *DefaultAttributeHandler) GetSchema() *schema.Schema {

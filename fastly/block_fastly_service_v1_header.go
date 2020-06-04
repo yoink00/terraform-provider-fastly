@@ -89,6 +89,19 @@ var headerSchema = &schema.Schema{
 	},
 }
 
+type HeaderAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewHeader() AttributeHandler {
+	return &HeaderAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: headerSchema,
+			key:    "header",
+		},
+	}
+}
+
 func flattenHeaders(headerList []*fastly.Header) []map[string]interface{} {
 	var hl []map[string]interface{}
 	for _, h := range headerList {
@@ -163,7 +176,7 @@ func buildHeader(headerMap interface{}) (*fastly.CreateHeaderInput, error) {
 	return &opts, nil
 }
 
-func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *HeaderAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oh, nh := d.GetChange("header")
 	if oh == nil {
 		oh = new(schema.Set)
@@ -217,7 +230,7 @@ func processHeader(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 	return nil
 }
 
-func readHeader(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *HeaderAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh headers
 	log.Printf("[DEBUG] Refreshing Headers for (%s)", d.Id())
 	headerList, err := conn.ListHeaders(&fastly.ListHeadersInput{

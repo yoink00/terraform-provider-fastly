@@ -64,6 +64,19 @@ var directorSchema = &schema.Schema{
 	},
 }
 
+type DirectorAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewDirector() AttributeHandler {
+	return &DirectorAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: directorSchema,
+			key:    "director",
+		},
+	}
+}
+
 func flattenDirectors(directorList []*fastly.Director, directorBackendList []*fastly.DirectorBackend) []map[string]interface{} {
 	var dl []map[string]interface{}
 	for _, d := range directorList {
@@ -100,7 +113,7 @@ func flattenDirectors(directorList []*fastly.Director, directorBackendList []*fa
 	return dl
 }
 
-func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *DirectorAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	od, nd := d.GetChange("director")
 	if od == nil {
 		od = new(schema.Set)
@@ -188,7 +201,7 @@ func processDirector(d *schema.ResourceData, latestVersion int, conn *fastly.Cli
 	return nil
 }
 
-func readDirector(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *DirectorAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh directors
 	backendList, err := conn.ListBackends(&fastly.ListBackendsInput{
 		Service: d.Id(),

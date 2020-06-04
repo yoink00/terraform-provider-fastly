@@ -45,6 +45,19 @@ var cacheSettingSchema = &schema.Schema{
 	},
 }
 
+type CacheSettingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewCacheSetting() AttributeHandler {
+	return &CacheSettingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: cacheSettingSchema,
+			key:    "cache_setting",
+		},
+	}
+}
+
 func buildCacheSetting(cacheMap interface{}) (*fastly.CreateCacheSettingInput, error) {
 	df := cacheMap.(map[string]interface{})
 	opts := fastly.CreateCacheSettingInput{
@@ -95,7 +108,7 @@ func flattenCacheSettings(csList []*fastly.CacheSetting) []map[string]interface{
 	return csl
 }
 
-func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *CacheSettingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oc, nc := d.GetChange("cache_setting")
 	if oc == nil {
 		oc = new(schema.Set)
@@ -149,7 +162,7 @@ func processCacheSetting(d *schema.ResourceData, latestVersion int, conn *fastly
 	return nil
 }
 
-func readCacheSettings(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *CacheSettingAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Cache Settings
 	log.Printf("[DEBUG] Refreshing Cache Settings for (%s)", d.Id())
 	cslList, err := conn.ListCacheSettings(&fastly.ListCacheSettingsInput{

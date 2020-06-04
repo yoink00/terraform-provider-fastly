@@ -99,6 +99,19 @@ var blogstorageloggingSchema = &schema.Schema{
 	},
 }
 
+type BlobstorageloggingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewBlobstoragelogging() AttributeHandler {
+	return &BlobstorageloggingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: blogstorageloggingSchema,
+			key:    "blobstoragelogging",
+		},
+	}
+}
+
 func flattenBlobStorages(blobStorageList []*fastly.BlobStorage) []map[string]interface{} {
 	var bsl []map[string]interface{}
 	for _, bs := range blobStorageList {
@@ -133,7 +146,7 @@ func flattenBlobStorages(blobStorageList []*fastly.BlobStorage) []map[string]int
 	return bsl
 }
 
-func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *BlobstorageloggingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	obsl, nbsl := d.GetChange("blobstoragelogging")
 	if obsl == nil {
 		obsl = new(schema.Set)
@@ -199,7 +212,7 @@ func processBlobstoragelogging(d *schema.ResourceData, latestVersion int, conn *
 	return nil
 }
 
-func readBlogstoragelogging(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *BlobstorageloggingAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Blob Storage Logging
 	log.Printf("[DEBUG] Refreshing Blob Storages for (%s)", d.Id())
 	blobStorageList, err := conn.ListBlobStorages(&fastly.ListBlobStoragesInput{

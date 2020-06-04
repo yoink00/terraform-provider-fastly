@@ -120,6 +120,19 @@ var s3loggingSchema = &schema.Schema{
 	},
 }
 
+type S3loggingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewS3logging() AttributeHandler {
+	return &S3loggingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: s3loggingSchema,
+			key:    "s3logging",
+		},
+	}
+}
+
 func flattenS3s(s3List []*fastly.S3) []map[string]interface{} {
 	var sl []map[string]interface{}
 	for _, s := range s3List {
@@ -155,7 +168,7 @@ func flattenS3s(s3List []*fastly.S3) []map[string]interface{} {
 	return sl
 }
 
-func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *S3loggingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("s3logging")
 	if os == nil {
 		os = new(schema.Set)
@@ -246,7 +259,7 @@ func processS3logging(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 	return nil
 }
 
-func readS3logging(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *S3loggingAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh S3 Logging
 	log.Printf("[DEBUG] Refreshing S3 Logging for (%s)", d.Id())
 	s3List, err := conn.ListS3s(&fastly.ListS3sInput{

@@ -59,6 +59,19 @@ var responseObjectSchema = &schema.Schema{
 	},
 }
 
+type ResponseObjectAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewResponseObject() AttributeHandler {
+	return &ResponseObjectAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: responseObjectSchema,
+			key:    "response_object",
+		},
+	}
+}
+
 func flattenResponseObjects(responseObjectList []*fastly.ResponseObject) []map[string]interface{} {
 	var rol []map[string]interface{}
 	for _, ro := range responseObjectList {
@@ -86,7 +99,7 @@ func flattenResponseObjects(responseObjectList []*fastly.ResponseObject) []map[s
 	return rol
 }
 
-func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *ResponseObjectAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	or, nr := d.GetChange("response_object")
 	if or == nil {
 		or = new(schema.Set)
@@ -145,7 +158,7 @@ func processResponseObject(d *schema.ResourceData, latestVersion int, conn *fast
 	return nil
 }
 
-func readResponseObject(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *ResponseObjectAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Response Objects
 	log.Printf("[DEBUG] Refreshing Response Object for (%s)", d.Id())
 	responseObjectList, err := conn.ListResponseObjects(&fastly.ListResponseObjectsInput{

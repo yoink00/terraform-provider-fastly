@@ -65,6 +65,19 @@ var logentriesSchema = &schema.Schema{
 	},
 }
 
+type LogentriesAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewLogentries() AttributeHandler {
+	return &LogentriesAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: logentriesSchema,
+			key:    "logentries",
+		},
+	}
+}
+
 func flattenLogentries(logentriesList []*fastly.Logentries) []map[string]interface{} {
 	var LEList []map[string]interface{}
 	for _, currentLE := range logentriesList {
@@ -93,7 +106,7 @@ func flattenLogentries(logentriesList []*fastly.Logentries) []map[string]interfa
 	return LEList
 }
 
-func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *LogentriesAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("logentries")
 	if os == nil {
 		os = new(schema.Set)
@@ -153,7 +166,7 @@ func processLogentries(d *schema.ResourceData, latestVersion int, conn *fastly.C
 	return nil
 }
 
-func readLogentries(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *LogentriesAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Logentries Logging
 	log.Printf("[DEBUG] Refreshing Logentries for (%s)", d.Id())
 	logentriesList, err := conn.ListLogentries(&fastly.ListLogentriesInput{

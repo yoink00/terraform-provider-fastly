@@ -26,6 +26,19 @@ var domainSchema = &schema.Schema{
 	},
 }
 
+type DomainAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewDomain() AttributeHandler {
+	return &DomainAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: domainSchema,
+			key:    "domain",
+		},
+	}
+}
+
 func flattenDomains(list []*fastly.Domain) []map[string]interface{} {
 	dl := make([]map[string]interface{}, 0, len(list))
 
@@ -39,7 +52,7 @@ func flattenDomains(list []*fastly.Domain) []map[string]interface{} {
 	return dl
 }
 
-func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *DomainAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	od, nd := d.GetChange("domain")
 	if od == nil {
 		od = new(schema.Set)
@@ -96,7 +109,7 @@ func processDomain(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 	return nil
 }
 
-func readDomain(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *DomainAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// TODO: update go-fastly to support an ActiveVersion struct, which contains
 	// domain and backend info in the response. Here we do 2 additional queries
 	// to find out that info

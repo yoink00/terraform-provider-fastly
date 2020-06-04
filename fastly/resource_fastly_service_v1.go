@@ -15,19 +15,66 @@ var fastlyNoServiceFoundErr = errors.New("No matching Fastly Service found")
 var vclService = &DefaultServiceDefinition{
 	Type: "vcl",
 	Attributes: []AttributeHandler{
+		NewCondition(),
+		NewHealthcheck(),
 		NewBackend(),
+		NewDomain(),
+		NewDirector(),
+		NewHeader(),
+		NewGzip(),
+		NewResponseObject(),
+		NewRequestSetting(),
+		NewVCL(),
+		NewSnippet(),
 		NewACL(),
+
+		NewDynamicSnippet(),
+		NewCacheSetting(),
+		NewDictionary(),
+
+		NewS3logging(),
+		NewPapertrail(),
+		NewSumologic(),
+		NewGcslogging(),
+		NewSyslog(),
+		NewLogentries(),
+		NewSplunk(),
+		NewHttpslogging(),
+		NewBigquerylogging(),
+		NewBlobstoragelogging(),
 	},
 }
 
 var wasmService = &DefaultServiceDefinition{
 	Type: "wasm",
 	Attributes: []AttributeHandler{
+		NewCondition(),
+		NewHealthcheck(),
 		NewBackend(),
+		NewDomain(),
+
+		NewS3logging(),
+		NewPapertrail(),
+		NewSumologic(),
+		NewGcslogging(),
+		NewLogentries(),
+		NewSyslog(),
+		NewSplunk(),
+		NewHttpslogging(),
+		NewBigquerylogging(),
+		NewBlobstoragelogging(),
 	},
 }
 
-func resourceServiceV1(serviceDef ServiceDefinition) *schema.Resource {
+func resourceServiceV1() *schema.Resource {
+	return resourceService(vclService)
+}
+
+func resourceServiceWASMV1() *schema.Resource {
+	return resourceService(wasmService)
+}
+
+func resourceService(serviceDef ServiceDefinition) *schema.Resource {
 	s := &schema.Resource{
 		Create: resourceCreate(serviceDef),
 		Read:   resourceRead(serviceDef),
@@ -84,10 +131,6 @@ func resourceServiceV1(serviceDef ServiceDefinition) *schema.Resource {
 				Optional:    true,
 			},
 
-			"domain": domainSchema,
-
-			"condition": conditionSchema,
-
 			"default_ttl": {
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -102,34 +145,11 @@ func resourceServiceV1(serviceDef ServiceDefinition) *schema.Resource {
 				Description: "The default hostname for the version",
 			},
 
-			"healthcheck": healthcheckSchema,
-			"backend":     backendSchema,
-			"director":    directorSchema,
-
 			"force_destroy": {
 				Type:     schema.TypeBool,
 				Optional: true,
 			},
 
-			"cache_setting":      cacheSettingSchema,
-			"gzip":               gzipSchema,
-			"header":             headerSchema,
-			"s3logging":          s3loggingSchema,
-			"papertrail":         papertrailSchema,
-			"sumologic":          sumologicSchema,
-			"gcslogging":         gcsloogingSchema,
-			"bigquerylogging":    bigqueryloggingSchema,
-			"syslog":             syslogSchema,
-			"logentries":         logentriesSchema,
-			"splunk":             splunkSchema,
-			"blobstoragelogging": blogstorageloggingSchema,
-			"httpslogging":       httpsloggingSchema,
-			"response_object":    responseObjectSchema,
-			"request_setting":    requestSettingSchema,
-			"vcl":                vclSchema,
-			"snippet":            snippetSchema,
-			"dynamicsnippet":     dynamicsnippetSchema,
-			"dictionary":         dictionarySchema,
 		},
 	}
 	for _, attrib := range serviceDef.GetAttributeHandler() {
@@ -171,7 +191,7 @@ func resourceServiceV1Create(d *schema.ResourceData, meta interface{}, serviceDe
 	service, err := conn.CreateService(&gofastly.CreateServiceInput{
 		Name:    d.Get("name").(string),
 		Comment: d.Get("comment").(string),
-		Type: serviceDef.GetType(),
+		Type:    serviceDef.GetType(),
 	})
 
 	if err != nil {
@@ -212,31 +232,8 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}, serviceDe
 	}
 
 	for _, key := range []string{
-		"domain",
 		"default_host",
 		"default_ttl",
-		"director",
-		"header",
-		"gzip",
-		"healthcheck",
-		"s3logging",
-		"papertrail",
-		"gcslogging",
-		"bigquerylogging",
-		"syslog",
-		"sumologic",
-		"logentries",
-		"splunk",
-		"blobstoragelogging",
-		"httpslogging",
-		"response_object",
-		"condition",
-		"request_setting",
-		"cache_setting",
-		"snippet",
-		"dynamicsnippet",
-		"vcl",
-		"dictionary",
 	} {
 		keys = append(keys, key)
 	}
@@ -349,169 +346,6 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}, serviceDe
 			}
 		}
 
-		// Conditions need to be updated first, as they can be referenced by other
-		// configuraiton objects (Backends, Request Headers, etc)
-
-		// Find difference in Conditions
-		if d.HasChange("condition") {
-			if err := processCondition(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in domains
-		if d.HasChange("domain") {
-			if err := processDomain(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Healthchecks need to be updated BEFORE backends
-		if d.HasChange("healthcheck") {
-			if err := processHealthcheck(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		if d.HasChange("director") {
-			if err := processDirector(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		if d.HasChange("header") {
-			if err := processHeader(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in Gzips
-		if d.HasChange("gzip") {
-			if err := procesGzip(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in s3logging
-		if d.HasChange("s3logging") {
-			if err := processS3logging(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Papertrail
-		if d.HasChange("papertrail") {
-			if err := processPapertrail(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Sumologic
-		if d.HasChange("sumologic") {
-			if err := processSumologic(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in gcslogging
-		if d.HasChange("gcslogging") {
-			if err := processGcslogging(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in bigquerylogging
-		if d.HasChange("bigquerylogging") {
-			if err := processBigquerylogging(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Syslog
-		if d.HasChange("syslog") {
-			if err := procesSyslog(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Logentries
-		if d.HasChange("logentries") {
-			if err := processLogentries(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Splunk logging configurations
-		if d.HasChange("splunk") {
-			if err := processSplunk(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Blob Storage logging configurations
-		if d.HasChange("blobstoragelogging") {
-			if err := processBlobstoragelogging(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find differences in HTTPS logging configuration
-		if d.HasChange("httpslogging") {
-			if err := processHTTPS(d, conn, latestVersion); err != nil {
-				return err
-			}
-		}
-
-		// find difference in Response Object
-		if d.HasChange("response_object") {
-			if err := processResponseObject(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// find difference in request settings
-		if d.HasChange("request_setting") {
-			if err := processRequestSetting(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in VCLs
-		if d.HasChange("vcl") {
-			if err := processVcl(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in VCL snippets
-		if d.HasChange("snippet") {
-			if err := processSnippet(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in VCL dynamic snippets
-		if d.HasChange("dynamicsnippet") {
-			if err := processDynamicsnippet(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in Cache Settings
-		if d.HasChange("cache_setting") {
-			if err := processCacheSetting(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
-		// Find differences in dictionary
-		if d.HasChange("dictionary") {
-
-			if err := processDictionary(d, latestVersion, conn); err != nil {
-				return err
-			}
-		}
-
 		// validate version
 		log.Printf("[DEBUG] Validating Fastly Service (%s), Version (%v)", d.Id(), latestVersion)
 		valid, msg, err := conn.ValidateVersion(&gofastly.ValidateVersionInput{
@@ -601,99 +435,6 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}, serviceDef 
 			if err := attribute.Read(d, conn, s); err != nil {
 				return err
 			}
-		}
-
-		if err := readDomain(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readDirector(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readHeader(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readGzip(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readHealthcheck(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readS3logging(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readPapertrail(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readSumologic(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readGcslogging(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readBigquerylogging(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readSyslog(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readLogentries(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readSplunk(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readBlogstoragelogging(d, conn, s); err != nil {
-			return err
-		}
-
-		// Refresh HTTPS
-		if err := readHTTPS(conn, d, s); err != nil {
-			return err
-		}
-
-		if err := readResponseObject(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readCondition(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readRequestSetting(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readVcl(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readSnippet(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readDynamicsnippet(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readCacheSettings(d, conn, s); err != nil {
-			return err
-		}
-
-		if err := readDictionary(d, conn, s); err != nil {
-			return err
 		}
 
 	} else {

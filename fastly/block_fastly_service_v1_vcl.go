@@ -33,6 +33,19 @@ var vclSchema = &schema.Schema{
 	},
 }
 
+type VCLAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewVCL() AttributeHandler {
+	return &VCLAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: vclSchema,
+			key:    "vcl",
+		},
+	}
+}
+
 func flattenVCLs(vclList []*fastly.VCL) []map[string]interface{} {
 	var vl []map[string]interface{}
 	for _, vcl := range vclList {
@@ -82,7 +95,7 @@ func validateVCLs(d *schema.ResourceData) error {
 	return nil
 }
 
-func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *VCLAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
 	// endpoint to update a VCL, we simply destroy it and create a new one.
 	oldVCLVal, newVCLVal := d.GetChange("vcl")
@@ -152,7 +165,7 @@ func processVcl(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 	return nil
 }
 
-func readVcl(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *VCLAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh VCLs
 	log.Printf("[DEBUG] Refreshing VCLs for (%s)", d.Id())
 	vclList, err := conn.ListVCLs(&fastly.ListVCLsInput{

@@ -81,6 +81,19 @@ var healthcheckSchema = &schema.Schema{
 	},
 }
 
+type HealthcheckAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewHealthcheck() AttributeHandler {
+	return &HealthcheckAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: healthcheckSchema,
+			key:    "healthcheck",
+		},
+	}
+}
+
 func flattenHealthchecks(healthcheckList []*fastly.HealthCheck) []map[string]interface{} {
 	var hl []map[string]interface{}
 	for _, h := range healthcheckList {
@@ -112,7 +125,7 @@ func flattenHealthchecks(healthcheckList []*fastly.HealthCheck) []map[string]int
 	return hl
 }
 
-func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *HealthcheckAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oh, nh := d.GetChange("healthcheck")
 	if oh == nil {
 		oh = new(schema.Set)
@@ -175,7 +188,7 @@ func processHealthcheck(d *schema.ResourceData, latestVersion int, conn *fastly.
 	return nil
 }
 
-func readHealthcheck(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *HealthcheckAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Healthcheck
 	log.Printf("[DEBUG] Refreshing Healthcheck for (%s)", d.Id())
 	healthcheckList, err := conn.ListHealthChecks(&fastly.ListHealthChecksInput{

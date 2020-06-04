@@ -34,6 +34,19 @@ var dictionarySchema = &schema.Schema{
 	},
 }
 
+type DictionaryAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewDictionary() AttributeHandler {
+	return &DictionaryAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: dictionarySchema,
+			key:    "dictionary",
+		},
+	}
+}
+
 func buildDictionary(dictMap interface{}) (*fastly.CreateDictionaryInput, error) {
 	df := dictMap.(map[string]interface{})
 	opts := fastly.CreateDictionaryInput{
@@ -67,7 +80,7 @@ func flattenDictionaries(dictList []*fastly.Dictionary) []map[string]interface{}
 	return dl
 }
 
-func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *DictionaryAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	oldDictVal, newDictVal := d.GetChange("dictionary")
 
 	if oldDictVal == nil {
@@ -122,7 +135,7 @@ func processDictionary(d *schema.ResourceData, latestVersion int, conn *fastly.C
 	return nil
 }
 
-func readDictionary(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *DictionaryAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Dictionaries
 	log.Printf("[DEBUG] Refreshing Dictionaries for (%s)", d.Id())
 	dictList, err := conn.ListDictionaries(&fastly.ListDictionariesInput{

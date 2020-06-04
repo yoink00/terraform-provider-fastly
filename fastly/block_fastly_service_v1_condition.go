@@ -38,6 +38,19 @@ var conditionSchema = &schema.Schema{
 	},
 }
 
+type ConditionAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewCondition() AttributeHandler {
+	return &ConditionAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: conditionSchema,
+			key:    "condition",
+		},
+	}
+}
+
 func flattenConditions(conditionList []*fastly.Condition) []map[string]interface{} {
 	var cl []map[string]interface{}
 	for _, c := range conditionList {
@@ -62,7 +75,7 @@ func flattenConditions(conditionList []*fastly.Condition) []map[string]interface
 	return cl
 }
 
-func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *ConditionAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: we don't utilize the PUT endpoint to update these objects, we simply
 	// destroy any that have changed, and create new ones with the updated
 	// values. This is how Terraform works with nested sub resources, we only
@@ -125,7 +138,7 @@ func processCondition(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 	return nil
 }
 
-func readCondition(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *ConditionAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Conditions
 	log.Printf("[DEBUG] Refreshing Conditions for (%s)", d.Id())
 	conditionList, err := conn.ListConditions(&fastly.ListConditionsInput{

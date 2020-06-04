@@ -7,7 +7,7 @@ import (
 	"log"
 )
 
-var gcsloogingSchema = &schema.Schema{
+var gcsloggingSchema = &schema.Schema{
 	Type:     schema.TypeSet,
 	Optional: true,
 	Elem: &schema.Resource{
@@ -88,6 +88,19 @@ var gcsloogingSchema = &schema.Schema{
 	},
 }
 
+type GcsloggingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewGcslogging() AttributeHandler {
+	return &GcsloggingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: gcsloggingSchema,
+			key:    "gcslogging",
+		},
+	}
+}
+
 func flattenGCS(gcsList []*fastly.GCS) []map[string]interface{} {
 	var GCSList []map[string]interface{}
 	for _, currentGCS := range gcsList {
@@ -120,7 +133,7 @@ func flattenGCS(gcsList []*fastly.GCS) []map[string]interface{} {
 	return GCSList
 }
 
-func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *GcsloggingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("gcslogging")
 	if os == nil {
 		os = new(schema.Set)
@@ -183,7 +196,7 @@ func processGcslogging(d *schema.ResourceData, latestVersion int, conn *fastly.C
 	return nil
 }
 
-func readGcslogging(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *GcsloggingAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh GCS Logging
 	log.Printf("[DEBUG] Refreshing GCS for (%s)", d.Id())
 	GCSList, err := conn.ListGCSs(&fastly.ListGCSsInput{

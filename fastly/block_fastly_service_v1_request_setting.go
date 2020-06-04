@@ -81,6 +81,19 @@ var requestSettingSchema = &schema.Schema{
 	},
 }
 
+type RequestSettingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewRequestSetting() AttributeHandler {
+	return &RequestSettingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: requestSettingSchema,
+			key:    "request_setting",
+		},
+	}
+}
+
 func flattenRequestSettings(rsList []*fastly.RequestSetting) []map[string]interface{} {
 	var rl []map[string]interface{}
 	for _, r := range rsList {
@@ -153,7 +166,7 @@ func buildRequestSetting(requestSettingMap interface{}) (*fastly.CreateRequestSe
 	return &opts, nil
 }
 
-func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *RequestSettingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("request_setting")
 	if os == nil {
 		os = new(schema.Set)
@@ -206,7 +219,7 @@ func processRequestSetting(d *schema.ResourceData, latestVersion int, conn *fast
 	return nil
 }
 
-func readRequestSetting(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *RequestSettingAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Request Settings
 	log.Printf("[DEBUG] Refreshing Request Settings for (%s)", d.Id())
 	rsList, err := conn.ListRequestSettings(&fastly.ListRequestSettingsInput{

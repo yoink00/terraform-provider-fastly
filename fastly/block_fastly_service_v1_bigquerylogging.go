@@ -76,6 +76,19 @@ var bigqueryloggingSchema = &schema.Schema{
 	},
 }
 
+type BigqueryloggingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewBigquerylogging() AttributeHandler {
+	return &BigqueryloggingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: bigqueryloggingSchema,
+			key:    "bigquerylogging",
+		},
+	}
+}
+
 func flattenBigQuery(bqList []*fastly.BigQuery) []map[string]interface{} {
 	var BQList []map[string]interface{}
 	for _, currentBQ := range bqList {
@@ -106,7 +119,7 @@ func flattenBigQuery(bqList []*fastly.BigQuery) []map[string]interface{} {
 	return BQList
 }
 
-func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *BigqueryloggingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("bigquerylogging")
 	if os == nil {
 		os = new(schema.Set)
@@ -170,7 +183,7 @@ func processBigquerylogging(d *schema.ResourceData, latestVersion int, conn *fas
 	return nil
 }
 
-func readBigquerylogging(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *BigqueryloggingAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh BigQuery Logging
 	log.Printf("[DEBUG] Refreshing BigQuery for (%s)", d.Id())
 	BQList, err := conn.ListBigQueries(&fastly.ListBigQueriesInput{

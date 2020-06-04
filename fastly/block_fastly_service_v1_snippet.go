@@ -76,6 +76,19 @@ func buildSnippet(snippetMap interface{}) (*fastly.CreateSnippetInput, error) {
 	return &opts, nil
 }
 
+type SnippetAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewSnippet() AttributeHandler {
+	return &SnippetAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: vclSchema,
+			key:    "snippet",
+		},
+	}
+}
+
 func flattenSnippets(snippetList []*fastly.Snippet) []map[string]interface{} {
 	var sl []map[string]interface{}
 	for _, snippet := range snippetList {
@@ -105,7 +118,7 @@ func flattenSnippets(snippetList []*fastly.Snippet) []map[string]interface{} {
 	return sl
 }
 
-func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *SnippetAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
 	// endpoint to update a VCL snippet, we simply destroy it and create a new one.
 	oldSnippetVal, newSnippetVal := d.GetChange("snippet")
@@ -161,7 +174,7 @@ func processSnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Clie
 	return nil
 }
 
-func readSnippet(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *SnippetAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh VCL Snippets
 	log.Printf("[DEBUG] Refreshing VCL Snippets for (%s)", d.Id())
 	snippetList, err := conn.ListSnippets(&fastly.ListSnippetsInput{

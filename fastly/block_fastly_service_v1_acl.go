@@ -32,11 +32,11 @@ type ACLAttributeHandler struct {
 	*DefaultAttributeHandler
 }
 
-func NewACL() AttributeHandler{
+func NewACL() AttributeHandler {
 	return &ACLAttributeHandler{
 		&DefaultAttributeHandler{
 			schema: aclSchema,
-			key: "acl",
+			key:    "acl",
 		},
 	}
 }

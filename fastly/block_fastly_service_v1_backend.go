@@ -174,11 +174,11 @@ type BackendAttributeHandler struct {
 	*DefaultAttributeHandler
 }
 
-func NewBackend() AttributeHandler{
+func NewBackend() AttributeHandler {
 	return &BackendAttributeHandler{
 		&DefaultAttributeHandler{
 			schema: backendSchema,
-			key: "backend",
+			key:    "backend",
 		},
 	}
 }

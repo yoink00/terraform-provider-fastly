@@ -51,6 +51,19 @@ var papertrailSchema = &schema.Schema{
 	},
 }
 
+type PapertrailAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewPapertrail() AttributeHandler {
+	return &PapertrailAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: papertrailSchema,
+			key:    "papertrail",
+		},
+	}
+}
+
 func flattenPapertrails(papertrailList []*fastly.Papertrail) []map[string]interface{} {
 	var pl []map[string]interface{}
 	for _, p := range papertrailList {
@@ -77,7 +90,7 @@ func flattenPapertrails(papertrailList []*fastly.Papertrail) []map[string]interf
 	return pl
 }
 
-func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *PapertrailAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("papertrail")
 	if os == nil {
 		os = new(schema.Set)
@@ -135,7 +148,7 @@ func processPapertrail(d *schema.ResourceData, latestVersion int, conn *fastly.C
 	return nil
 }
 
-func readPapertrail(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *PapertrailAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Papertrail Logging
 	log.Printf("[DEBUG] Refreshing Papertrail for (%s)", d.Id())
 	papertrailList, err := conn.ListPapertrails(&fastly.ListPapertrailsInput{

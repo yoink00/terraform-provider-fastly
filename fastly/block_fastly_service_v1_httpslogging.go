@@ -140,7 +140,20 @@ var httpsloggingSchema = &schema.Schema{
 	},
 }
 
-func processHTTPS(d *schema.ResourceData, conn *gofastly.Client, latestVersion int) error {
+type HttpsloggingAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewHttpslogging() AttributeHandler {
+	return &HttpsloggingAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: httpsloggingSchema,
+			key:    "httpslogging",
+		},
+	}
+}
+
+func (h *HttpsloggingAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *gofastly.Client) error {
 	serviceID := d.Id()
 	oh, nh := d.GetChange("httpslogging")
 
@@ -184,7 +197,7 @@ func processHTTPS(d *schema.ResourceData, conn *gofastly.Client, latestVersion i
 	return nil
 }
 
-func readHTTPS(conn *gofastly.Client, d *schema.ResourceData, s *gofastly.ServiceDetail) error {
+func (h *HttpsloggingAttributeHandler) Read(d *schema.ResourceData, conn *gofastly.Client, s *gofastly.ServiceDetail) error {
 	// refresh HTTPS
 	log.Printf("[DEBUG] Refreshing HTTPS logging endpoints for (%s)", d.Id())
 	httpsList, err := conn.ListHTTPS(&gofastly.ListHTTPSInput{

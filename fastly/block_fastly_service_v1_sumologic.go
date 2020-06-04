@@ -87,7 +87,20 @@ func flattenSumologics(sumologicList []*fastly.Sumologic) []map[string]interface
 	return l
 }
 
-func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+type SumologicAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewSumologic() AttributeHandler {
+	return &SumologicAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: bigqueryloggingSchema,
+			key:    "sumologic",
+		},
+	}
+}
+
+func (h *SumologicAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("sumologic")
 	if os == nil {
 		os = new(schema.Set)
@@ -145,7 +158,7 @@ func processSumologic(d *schema.ResourceData, latestVersion int, conn *fastly.Cl
 	return nil
 }
 
-func readSumologic(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *SumologicAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Sumologic Logging
 	log.Printf("[DEBUG] Refreshing Sumologic for (%s)", d.Id())
 	sumologicList, err := conn.ListSumologics(&fastly.ListSumologicsInput{

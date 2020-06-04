@@ -70,6 +70,19 @@ var splunkSchema = &schema.Schema{
 	},
 }
 
+type SplunkAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewSplunk() AttributeHandler {
+	return &SplunkAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: splunkSchema,
+			key:    "splunk",
+		},
+	}
+}
+
 func flattenSplunks(splunkList []*fastly.Splunk) []map[string]interface{} {
 	var sl []map[string]interface{}
 	for _, s := range splunkList {
@@ -99,7 +112,7 @@ func flattenSplunks(splunkList []*fastly.Splunk) []map[string]interface{} {
 	return sl
 }
 
-func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *SplunkAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("splunk")
 	if os == nil {
 		os = new(schema.Set)
@@ -160,7 +173,7 @@ func processSplunk(d *schema.ResourceData, latestVersion int, conn *fastly.Clien
 	return nil
 }
 
-func readSplunk(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *SplunkAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Splunk Logging
 	log.Printf("[DEBUG] Refreshing Splunks for (%s)", d.Id())
 	splunkList, err := conn.ListSplunks(&fastly.ListSplunksInput{

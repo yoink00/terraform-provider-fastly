@@ -42,6 +42,19 @@ var gzipSchema = &schema.Schema{
 	},
 }
 
+type GzipAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewGzip() AttributeHandler {
+	return &GzipAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: gzipSchema,
+			key:    "gzip",
+		},
+	}
+}
+
 func flattenGzips(gzipsList []*fastly.Gzip) []map[string]interface{} {
 	var gl []map[string]interface{}
 	for _, g := range gzipsList {
@@ -82,7 +95,7 @@ func flattenGzips(gzipsList []*fastly.Gzip) []map[string]interface{} {
 	return gl
 }
 
-func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *GzipAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	og, ng := d.GetChange("gzip")
 	if og == nil {
 		og = new(schema.Set)
@@ -156,7 +169,7 @@ func procesGzip(d *schema.ResourceData, latestVersion int, conn *fastly.Client) 
 	return nil
 }
 
-func readGzip(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *GzipAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh gzips
 	log.Printf("[DEBUG] Refreshing Gzips for (%s)", d.Id())
 	gzipsList, err := conn.ListGzips(&fastly.ListGzipsInput{

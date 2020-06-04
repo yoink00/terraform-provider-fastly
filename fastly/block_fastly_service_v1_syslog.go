@@ -103,6 +103,19 @@ var syslogSchema = &schema.Schema{
 	},
 }
 
+type SyslogAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewSyslog() AttributeHandler {
+	return &SyslogAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: gcsloggingSchema,
+			key:    "syslog",
+		},
+	}
+}
+
 func flattenSyslogs(syslogList []*fastly.Syslog) []map[string]interface{} {
 	var pl []map[string]interface{}
 	for _, p := range syslogList {
@@ -137,7 +150,7 @@ func flattenSyslogs(syslogList []*fastly.Syslog) []map[string]interface{} {
 	return pl
 }
 
-func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *SyslogAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	os, ns := d.GetChange("syslog")
 	if os == nil {
 		os = new(schema.Set)
@@ -203,7 +216,7 @@ func procesSyslog(d *schema.ResourceData, latestVersion int, conn *fastly.Client
 	return nil
 }
 
-func readSyslog(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *SyslogAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	// refresh Syslog Logging
 	log.Printf("[DEBUG] Refreshing Syslog for (%s)", d.Id())
 	syslogList, err := conn.ListSyslogs(&fastly.ListSyslogsInput{

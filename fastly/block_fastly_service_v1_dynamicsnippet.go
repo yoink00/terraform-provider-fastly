@@ -39,6 +39,19 @@ var dynamicsnippetSchema = &schema.Schema{
 	},
 }
 
+type DynamicSnippetAttributeHandler struct {
+	*DefaultAttributeHandler
+}
+
+func NewDynamicSnippet() AttributeHandler {
+	return &DynamicSnippetAttributeHandler{
+		&DefaultAttributeHandler{
+			schema: dynamicsnippetSchema,
+			key:    "dynamicsnippet",
+		},
+	}
+}
+
 func buildDynamicSnippet(dynamicSnippetMap interface{}) (*fastly.CreateSnippetInput, error) {
 	df := dynamicSnippetMap.(map[string]interface{})
 	opts := fastly.CreateSnippetInput{
@@ -105,7 +118,7 @@ func flattenDynamicSnippets(dynamicSnippetList []*fastly.Snippet) []map[string]i
 	return sl
 }
 
-func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
+func (h *DynamicSnippetAttributeHandler) Process(d *schema.ResourceData, latestVersion int, conn *fastly.Client) error {
 	// Note: as above with Gzip and S3 logging, we don't utilize the PUT
 	// endpoint to update a VCL dynamic snippet, we simply destroy it and create a new one.
 	oldDynamicSnippetVal, newDynamicSnippetVal := d.GetChange("dynamicsnippet")
@@ -161,7 +174,7 @@ func processDynamicsnippet(d *schema.ResourceData, latestVersion int, conn *fast
 	return nil
 }
 
-func readDynamicsnippet(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
+func (h *DynamicSnippetAttributeHandler) Read(d *schema.ResourceData, conn *fastly.Client, s *fastly.ServiceDetail) error {
 	log.Printf("[DEBUG] Refreshing VCL Snippets for (%s)", d.Id())
 	snippetList, err := conn.ListSnippets(&fastly.ListSnippetsInput{
 		Service: d.Id(),
