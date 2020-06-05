@@ -182,6 +182,8 @@ github.com/hashicorp/terraform-plugin-sdk/internal/version
 github.com/hashicorp/terraform-plugin-sdk/meta
 github.com/hashicorp/terraform-plugin-sdk/plugin
 github.com/hashicorp/terraform-plugin-sdk/terraform
+# github.com/hashicorp/terraform-website v1.0.0
+## explicit
 # github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 github.com/hashicorp/yamux
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af

@@ -37,6 +37,7 @@ func TestAccFastlyServiceV1_s3logging_basic(t *testing.T) {
 		MessageType:       "classic",
 		TimestampFormat:   "%Y-%m-%dT%H:%M:%S.000",
 		ResponseCondition: "response_condition_test",
+		Placement:       "none",
 	}
 
 	log1_after_update := gofastly.S3{
@@ -54,6 +55,7 @@ func TestAccFastlyServiceV1_s3logging_basic(t *testing.T) {
 		Redundancy:        "reduced_redundancy",
 		TimestampFormat:   "%Y-%m-%dT%H:%M:%S.000",
 		ResponseCondition: "response_condition_test",
+		Placement:         "none",
 	}
 
 	log2 := gofastly.S3{
@@ -69,38 +71,54 @@ func TestAccFastlyServiceV1_s3logging_basic(t *testing.T) {
 		FormatVersion:   1,
 		MessageType:     "classic",
 		TimestampFormat: "%Y-%m-%dT%H:%M:%S.000",
+		Placement:       "none",
 	}
 
-	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckServiceV1Destroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccServiceV1S3LoggingConfig(name, domainName1, testAwsPrimaryAccessKey, testAwsPrimarySecretKey),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckServiceV1Exists("fastly_service_v1.foo", &service),
-					testAccCheckFastlyServiceV1S3LoggingAttributes(&service, []*gofastly.S3{&log1}),
-					resource.TestCheckResourceAttr(
-						"fastly_service_v1.foo", "name", name),
-					resource.TestCheckResourceAttr(
-						"fastly_service_v1.foo", "s3logging.#", "1"),
-				),
-			},
-
-			{
-				Config: testAccServiceV1S3LoggingConfig_update(name, domainName1),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckServiceV1Exists("fastly_service_v1.foo", &service),
-					testAccCheckFastlyServiceV1S3LoggingAttributes(&service, []*gofastly.S3{&log1_after_update, &log2}),
-					resource.TestCheckResourceAttr(
-						"fastly_service_v1.foo", "name", name),
-					resource.TestCheckResourceAttr(
-						"fastly_service_v1.foo", "s3logging.#", "2"),
-				),
-			},
+	cases := []struct {
+		resource string
+	}{
+		{
+			resource: "fastly_service_v1",
 		},
-	})
+		{
+			resource: "fastly_service_wasm_v1",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.resource, func(t *testing.T) {
+			resource.Test(t, resource.TestCase{
+				PreCheck:     func() { testAccPreCheck(t) },
+				Providers:    testAccProviders,
+				CheckDestroy: testAccCheckServiceV1Destroy,
+				Steps: []resource.TestStep{
+					{
+						Config: testAccServiceV1S3LoggingConfig(c.resource, name, domainName1, testAwsPrimaryAccessKey, testAwsPrimarySecretKey),
+						Check: resource.ComposeTestCheckFunc(
+							testAccCheckServiceV1Exists(fmt.Sprintf("%s.foo", c.resource), &service),
+							testAccCheckFastlyServiceV1S3LoggingAttributes(&service, []*gofastly.S3{&log1}),
+							resource.TestCheckResourceAttr(
+								fmt.Sprintf("%s.foo", c.resource), "name", name),
+							resource.TestCheckResourceAttr(
+								fmt.Sprintf("%s.foo", c.resource), "s3logging.#", "1"),
+						),
+					},
+
+					{
+						Config: testAccServiceV1S3LoggingConfig_update(c.resource, name, domainName1),
+						Check: resource.ComposeTestCheckFunc(
+							testAccCheckServiceV1Exists(fmt.Sprintf("%s.foo", c.resource), &service),
+							testAccCheckFastlyServiceV1S3LoggingAttributes(&service, []*gofastly.S3{&log1_after_update, &log2}),
+							resource.TestCheckResourceAttr(
+								fmt.Sprintf("%s.foo", c.resource), "name", name),
+							resource.TestCheckResourceAttr(
+								fmt.Sprintf("%s.foo", c.resource), "s3logging.#", "2"),
+						),
+					},
+				},
+			})
+		})
+	}
 }
 
 func TestAccFastlyServiceV1_s3logging_domain_default(t *testing.T) {
@@ -307,9 +325,9 @@ resource "fastly_service_v1" "foo" {
 }`, name, domain, testAwsPrimaryAccessKey, testAwsPrimarySecretKey)
 }
 
-func testAccServiceV1S3LoggingConfig(name, domain, key, secret string) string {
+func testAccServiceV1S3LoggingConfig(resource, name, domain, key, secret string) string {
 	return fmt.Sprintf(`
-resource "fastly_service_v1" "foo" {
+resource "%s" "foo" {
   name = "%s"
 
   domain {
@@ -322,7 +340,7 @@ resource "fastly_service_v1" "foo" {
     name    = "amazon docs"
   }
 
-	condition {
+  condition {
     name      = "response_condition_test"
     type      = "RESPONSE"
     priority  = 8
@@ -335,16 +353,16 @@ resource "fastly_service_v1" "foo" {
     domain             = "s3-us-west-2.amazonaws.com"
     s3_access_key      = "%s"
     s3_secret_key      = "%s"
-		response_condition = "response_condition_test"
+    response_condition = "response_condition_test"
   }
 
   force_destroy = true
-}`, name, domain, key, secret)
+}`, resource, name, domain, key, secret)
 }
 
-func testAccServiceV1S3LoggingConfig_update(name, domain string) string {
+func testAccServiceV1S3LoggingConfig_update(resource, name, domain string) string {
 	return fmt.Sprintf(`
-resource "fastly_service_v1" "foo" {
+resource "%s" "foo" {
   name = "%s"
 
   domain {
@@ -373,6 +391,7 @@ resource "fastly_service_v1" "foo" {
     response_condition = "response_condition_test"
     message_type       = "blank"
     redundancy         = "reduced_redundancy"
+    placement          = "none"
   }
 
   s3logging {
@@ -383,10 +402,11 @@ resource "fastly_service_v1" "foo" {
     s3_secret_key = "%s"
     period        = 60
     gzip_level    = 3
+    placement     = "none"
   }
 
   force_destroy = true
-}`, name, domain, testAwsPrimaryAccessKey, testAwsPrimarySecretKey, testAwsOtherAccessKey, testAwsOtherSecretKey)
+}`, resource, name, domain, testAwsPrimaryAccessKey, testAwsPrimarySecretKey, testAwsOtherAccessKey, testAwsOtherSecretKey)
 }
 
 func testAccServiceV1S3LoggingConfig_env(name, domain string) string {
