@@ -1,4 +1,4 @@
----
+{{define "service_v1"}}---
 layout: "fastly"
 page_title: "Fastly: service_v1"
 sidebar_current: "docs-fastly-resource-service-v1"
@@ -407,58 +407,9 @@ The `sumologic` block supports:
 * `message_type` - (Optional) How the message should be formatted; one of: `classic`, `loggly`, `logplex` or `blank`. Default `classic`. See [Fastly's Documentation on Sumologic][fastly-sumologic]
 * `placement` - (Optional) Where in the generated VCL the logging call should be placed; one of: `none` or `waf_debug`.
 
-
-The `gcslogging` block supports:
-
-* `name` - (Required) A unique name to identify this GCS endpoint.
-* `email` - (Required) The email address associated with the target GCS bucket on your account. You may optionally provide this secret via an environment variable, `FASTLY_GCS_EMAIL`.
-* `bucket_name` - (Required) The name of the bucket in which to store the logs.
-* `secret_key` - (Required) The secret key associated with the target gcs bucket on your account. You may optionally provide this secret via an environment variable, `FASTLY_GCS_SECRET_KEY`. A typical format for the key is PEM format, containing actual newline characters where required.
-* `path` - (Optional) Path to store the files. Must end with a trailing slash.
-If this field is left empty, the files will be saved in the bucket's root path.
-* `period` - (Optional) How frequently the logs should be transferred, in
-seconds. Default `3600`.
-* `gzip_level` - (Optional) Level of GZIP compression, from `0-9`. `0` is no
-compression. `1` is fastest and least compressed, `9` is slowest and most
-compressed. Default `0`.
-* `format` - (Optional) Apache-style string or VCL variables to use for log formatting. Defaults to Apache Common Log format (`%h %l %u %t %r %>s`)
-* `response_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `RESPONSE`. For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
-* `message_type` - (Optional) How the message should be formatted; one of: `classic`, `loggly`, `logplex` or `blank`. Default `classic`. [Fastly Documentation](https://docs.fastly.com/api/logging#logging_gcs)
-* `placement` - (Optional) Where in the generated VCL the logging call should be placed; one of: `none` or `waf_debug`.
-
-
-The `bigquerylogging` block supports:
-
-* `name` - (Required) A unique name to identify this BigQuery logging endpoint.
-* `project_id` - (Required) The ID of your GCP project.
-* `dataset` - (Required) The ID of your BigQuery dataset.
-* `table` - (Required) The ID of your BigQuery table.
-* `email` - (Optional) The email for the service account with write access to your BigQuery dataset. If not provided, this will be pulled from a `FASTLY_BQ_EMAIL` environment variable.
-* `secret_key` - (Optional) The secret key associated with the sservice account that has write access to your BigQuery table. If not provided, this will be pulled from the `FASTLY_BQ_SECRET_KEY` environment variable. Typical format for this is a private key in a string with newlines.
-* `format` - (Optional) Apache style log formatting. Must produce JSON that matches the schema of your BigQuery table.
-* `response_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `RESPONSE`. For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
-* `template` - (Optional) Big query table name suffix template. If set will be interpreted as a strftime compatible string and used as the [Template Suffix for your table](https://cloud.google.com/bigquery/streaming-data-into-bigquery#template-tables).
-* `placement` - (Optional) Where in the generated VCL the logging call should be placed; one of: `none` or `waf_debug`.
-
-
-The `syslog` block supports:
-
-* `name` - (Required) A unique name to identify this Syslog endpoint.
-* `address` - (Required) A hostname or IPv4 address of the Syslog endpoint.
-* `port` - (Optional) The port associated with the address where the Syslog endpoint can be accessed. Default `514`.
-* `format` - (Optional) Apache-style string or VCL variables to use for log formatting. Defaults to Apache Common Log format (%h %l %u %t %r %>s)
-* `format_version` - (Optional) The version of the custom logging format used for the configured endpoint. Can be either 1 (the default, version 1 log format) or 2 (the version 2 log format).
-* `token` - (Optional) Whether to prepend each message with a specific token.
-* `use_tls` - (Optional) Whether to use TLS for secure logging. Default `false`.
-* `tls_hostname` - (Optional) Used during the TLS handshake to validate the certificate.
-* `tls_ca_cert` - (Optional) A secure certificate to authenticate the server with. Must be in PEM format. You can provide this certificate via an environment variable, `FASTLY_SYSLOG_CA_CERT`
-* `tls_client_cert` - (Optional) The client certificate used to make authenticated requests. Must be in PEM format. You can provide this certificate via an environment variable, `FASTLY_SYSLOG_CLIENT_CERT`
-* `tls_client_key` - (Optional) The client private key used to make authenticated requests. Must be in PEM format. You can provide this key via an environment variable, `FASTLY_SYSLOG_CLIENT_KEY`
-* `response_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `RESPONSE`. For detailed information about Conditionals,
-see [Fastly's Documentation on Conditionals][fastly-conditionals].
-* `message_type` - (Optional) How the message should be formatted; one of: `classic`, `loggly`, `logplex` or `blank`.  Default `classic`.
-* `placement` - (Optional) Where in the generated VCL the logging call should be placed; one of: `none` or `waf_debug`.
-
+{{ template "gcs_logging" . }}
+{{ template "bigquery_logging" . }}
+{{ template "syslog_logging" . }}
 
 The `logentries` block supports:
 
@@ -471,59 +422,9 @@ The `logentries` block supports:
 * `response_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `RESPONSE`. For detailed information about Conditionals, see [Fastly's Documentation on Conditionals][fastly-conditionals].
 * `placement` - (Optional) Where in the generated VCL the logging call should be placed; one of: `none` or `waf_debug`.
 
-
-The `blobstoragelogging` block supports:
-
-* `name` - (Required) A unique name to identify the Azure Blob Storage endpoint.
-* `account_name` - (Required) The unique Azure Blob Storage namespace in which your data objects are stored.
-* `container` - (Required) The name of the Azure Blob Storage container in which to store logs.
-* `sas_token` - (Required) The Azure shared access signature providing write access to the blob service objects. Be sure to update your token before it expires or the logging functionality will not work.
-* `path` - (Optional) The path to upload logs to. Must end with a trailing slash. If this field is left empty, the files will be saved in the container's root path.
-* `period` - (Optional) How frequently the logs should be transferred in seconds. Default `3600`.
-* `timestamp_format` - (Optional) `strftime` specified timestamp formatting. Default `%Y-%m-%dT%H:%M:%S.000`.
-* `gzip_level` - (Optional) Level of GZIP compression from `0`to `9`. `0` means no compression. `1` is the fastest and the least compressed version, `9` is the slowest and the most compressed version. Default `0`.
-* `public_key` - (Optional) A PGP public key that Fastly will use to encrypt your log files before writing them to disk.
-* `format` - (Optional) Apache-style string or VCL variables to use for log formatting. Default `%h %l %u %t \"%r\" %>s %b`.
-* `format_version` - (Optional) The version of the custom logging format used for the configured endpoint. Can be either `1` or `2`. The logging call gets placed by default in `vcl_log` if `format_version` is set to `2` and in `vcl_deliver` if `format_version` is set to `1`. Default `2`.
-* `message_type` - (Optional) How the message should be formatted. Can be either `classic`, `loggly`, `logplex` or `blank`.  Default `classic`.
-* `placement` - (Optional) Where in the generated VCL the logging call should be placed, overriding any `format_version` default. Can be either `none` or `waf_debug`.
-* `response_condition` - (Optional) The name of the `condition` to apply. If empty, always execute.
-
-
-The `splunk` block supports:
-
-* `name` - (Required) A unique name to identify the Splunk endpoint.
-* `url` - (Required) The Splunk URL to stream logs to.
-* `token` - (Required) The Splunk token to be used for authentication.
-* `format` - (Optional) Apache-style string or VCL variables to use for log formatting. Default `%h %l %u %t \"%r\" %>s %b`.
-* `format_version` - (Optional) The version of the custom logging format used for the configured endpoint. Can be either `1` or `2`. The logging call gets placed by default in `vcl_log` if `format_version` is set to `2` and in `vcl_deliver` if `format_version` is set to `1`. Default `2`.
-* `placement` - (Optional) Where in the generated VCL the logging call should be placed, overriding any `format_version` default. Can be either `none` or `waf_debug`.
-* `response_condition` - (Optional) The name of the `condition` to apply. If empty, always execute.
-* `tls_hostname` - (Optional) The hostname used to verify the server's certificate. It can either be the Common Name or a Subject Alternative Name (SAN).
-* `tls_ca_cert` - (Optional) A secure certificate to authenticate the server with. Must be in PEM format. You can provide this certificate via an environment variable, `FASTLY_SPLUNK_CA_CERT`.
-
-
-The `httpslogging` block supports:
-
-* `name` - (Required) The unique name of the HTTPS logging endpoint.
-* `url` - (Required) URL that log data will be sent to. Must use the https protocol.
-* `request_max_entries` - (Optional) The maximum number of logs sent in one request.
-* `request_max_bytes` - (Optional) The maximum number of bytes sent in one request.
-* `content_type` - (Optional) Value of the `Content-Type` header sent with the request.
-* `header_name` - (Optional) Custom header sent with the request.
-* `header_value` - (Optional) Value of the custom header sent with the request.
-* `method` - (Optional) HTTP method used for request. Can be either `POST` or `PUT`. Default `POST`.
-* `json_format` - Formats log entries as JSON. Can be either disabled (`0`), array of json (`1`), or newline delimited json (`2`).
-* `tls_hostname` - (Optional) Used during the TLS handshake to validate the certificate.
-* `tls_ca_cert` - (Optional) A secure certificate to authenticate the server with. Must be in PEM format.
-* `tls_client_cert` - (Optional) The client certificate used to make authenticated requests. Must be in PEM format.
-* `tls_client_key` - (Optional) The client private key used to make authenticated requests. Must be in PEM format.
-* `format` - (Optional) Apache-style string or VCL variables to use for log formatting.
-* `format_version` - (Optional) The version of the custom logging format used for the configured endpoint. Can be either `1` or `2`. The logging call gets placed by default in `vcl_log` if `format_version` is set to `2` and in `vcl_deliver` if `format_version` is set to `1`. Default `2`.
-* `message_type` - How the message should be formatted; one of: `classic`, `loggly`, `logplex` or `blank`.  Default `blank`.
-* `placement` - (Optional) Where in the generated VCL the logging call should be placed.
-* `response_condition` - (Optional) The name of the `condition` to apply. If empty, always execute.
-
+{{ template "blobstorage_logging" . }}
+{{ template "splunk_logging" . }}
+{{ template "https_logging" . }}
 
 The `response_object` block supports:
 
@@ -602,3 +503,4 @@ Fastly Service can be imported using their service ID, e.g.
 ```
 $ terraform import fastly_service_v1.demo xxxxxxxxxxxxxxxxxxxx
 ```
+{{end}}

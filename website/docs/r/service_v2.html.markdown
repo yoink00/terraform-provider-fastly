@@ -171,22 +171,9 @@ Service. Defined below.
 * `backend` - (Optional) A set of Backends to service requests from your Domains.
 Defined below. Backends must be defined in this argument, or defined in the
 `vcl` argument below
-* `condition` - (Optional) A set of conditions to add logic to any basic
-configuration object in this service. Defined below.
-* `cache_setting` - (Optional) A set of Cache Settings, allowing you to override
-* `director` - (Optional) A director to allow more control over balancing traffic over backends.
-when an item is not to be cached based on an above `condition`. Defined below
-* `gzip` - (Required) A set of gzip rules to control automatic gzipping of
-content. Defined below.
-* `header` - (Optional) A set of Headers to manipulate for each request. Defined
-below.
 * `healthcheck` - (Optional) Automated healthchecks on the cache that can change how Fastly interacts with the cache based on its health.
-* `default_host` - (Optional) The default hostname.
-* `default_ttl` - (Optional) The default Time-to-live (TTL) for
-requests.
 * `force_destroy` - (Optional) Services that are active cannot be destroyed. In
 order to destroy the Service, set `force_destroy` to `true`. Default `false`.
-* `request_setting` - (Optional) A set of Request modifiers. Defined below
 * `s3logging` - (Optional) A set of S3 Buckets to send streaming logs too.
 Defined below.
 * `papertrail` - (Optional) A Papertrail endpoint to send streaming logs too.
@@ -207,14 +194,6 @@ Defined below.
 Defined below.
 * `httpslogging` - (Optional) An HTTPS endpoint to send streaming logs to.
 Defined below.
-* `response_object` - (Optional) Allows you to create synthetic responses that exist entirely on the varnish machine. Useful for creating error or maintenance pages that exists outside the scope of your datacenter. Best when used with Condition objects.
-* `snippet` - (Optional) A set of custom, "regular" (non-dynamic) VCL Snippet configuration blocks.  Defined below.
-* `dynamicsnippet` - (Optional) A set of custom, "dynamic" VCL Snippet configuration blocks.  Defined below.
-* `vcl` - (Optional) A set of custom VCL configuration blocks. The
-ability to upload custom VCL code is not enabled by default for new Fastly
-accounts (see the [Fastly documentation](https://docs.fastly.com/guides/vcl/uploading-custom-vcl) for details).
-* `acl` - (Optional) A set of ACL configuration blocks.  Defined below.
-* `dictionary` - (Optional) A set of dictionaries that allow the storing of key values pair for use within VCL functions. Defined below.
 
 The `domain` block supports:
 
@@ -253,70 +232,6 @@ Default `200`.
 * `weight` - (Optional) The [portion of traffic](https://docs.fastly.com/guides/performance-tuning/load-balancing-configuration.html#how-weight-affects-load-balancing) to send to this Backend. Each Backend receives `weight / total` of the traffic. Default `100`.
 * `healthcheck` - (Optional) Name of a defined `healthcheck` to assign to this backend.
 
-The `condition` block supports allows you to add logic to any basic configuration
-object in a service. See Fastly's documentation
-["About Conditions"](https://docs.fastly.com/guides/conditions/about-conditions)
-for more detailed information on using Conditions. The Condition `name` can be
-used in the `request_condition`, `response_condition`, or
-`cache_condition` attributes of other block settings.
-
-* `name` - (Required) The unique name for the condition.
-* `statement` - (Required) The statement used to determine if the condition is met.
-* `type` - (Required) Type of condition, either `REQUEST` (req), `RESPONSE`
-(req, resp), or `CACHE` (req, beresp).
-* `priority` - (Optional) A number used to determine the order in which multiple
-conditions execute. Lower numbers execute first. Default `10`.
-
-The `director` block supports:
-
-* `name` - (Required) Unique name for this Director.
-* `backends` - (Required) Names of defined backends to map the director to. Example: `[ "origin1", "origin2" ]`
-* `comment` - (Optional) An optional comment about the Director.
-* `shield` - (Optional) Selected POP to serve as a "shield" for backends. Valid values for `shield` are included in the [`GET /datacenters`](https://docs.fastly.com/api/tools#datacenter) API response.
-* `capacity` - (Optional) Load balancing weight for the backends. Default `100`.
-* `quorum` - (Optional) Percentage of capacity that needs to be up for the director itself to be considered up. Default `75`.
-* `type` - (Optional) Type of load balance group to use. Integer, 1 to 4. Values: `1` (random), `3` (hash), `4` (client).  Default `1`.
-* `retries` - (Optional) How many backends to search if it fails. Default `5`.
-
-The `cache_setting` block supports:
-
-* `name` - (Required) Unique name for this Cache Setting.
-* `action` - (Optional) One of `cache`, `pass`, or `restart`, as defined
-on Fastly's documentation under ["Caching action descriptions"](https://docs.fastly.com/guides/performance-tuning/controlling-caching#caching-action-descriptions).
-* `cache_condition` - (Optional) Name of already defined `condition` used to test whether this settings object should be used. This `condition` must be of type `CACHE`.
-* `stale_ttl` - (Optional) Max "Time To Live" for stale (unreachable) objects.
-* `ttl` - (Optional) The Time-To-Live (TTL) for the object.
-
-The `gzip` block supports:
-
-* `name` - (Required) A unique name.
-* `content_types` - (Optional) The content-type for each type of content you wish to
-have dynamically gzip'ed. Example: `["text/html", "text/css"]`.
-* `extensions` - (Optional) File extensions for each file type to dynamically
-gzip. Example: `["css", "js"]`.
-* `cache_condition` - (Optional) Name of already defined `condition` controlling when this gzip configuration applies. This `condition` must be of type `CACHE`. For detailed information about Conditionals,
-see [Fastly's Documentation on Conditionals][fastly-conditionals].
-
-
-The `header` block supports adding, removing, or modifying Request and Response
-headers. See Fastly's documentation on
-[Adding or modifying headers on HTTP requests and responses](https://docs.fastly.com/guides/basic-configuration/adding-or-modifying-headers-on-http-requests-and-responses#field-description-table) for more detailed information on any of the properties below.
-
-* `name` - (Required) Unique name for this header attribute.
-* `action` - (Required) The Header manipulation action to take; must be one of
-`set`, `append`, `delete`, `regex`, or `regex_repeat`.
-* `type` - (Required) The Request type on which to apply the selected Action; must be one of `request`, `fetch`, `cache` or `response`.
-* `destination` - (Required) The name of the header that is going to be affected by the Action.
-* `ignore_if_set` - (Optional) Do not add the header if it is already present. (Only applies to the `set` action.). Default `false`.
-* `source` - (Optional) Variable to be used as a source for the header
-content. (Does not apply to the `delete` action.)
-* `regex` - (Optional) Regular expression to use (Only applies to the `regex` and `regex_repeat` actions.)
-* `substitution` - (Optional) Value to substitute in place of regular expression. (Only applies to the `regex` and `regex_repeat` actions.)
-* `priority` - (Optional) Lower priorities execute first. Default: `100`.
-* `request_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `REQUEST`.
-* `cache_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `CACHE`.
-* `response_condition` - (Optional) Name of already defined `condition` to apply. This `condition` must be of type `RESPONSE`. For detailed information about Conditionals,
-see [Fastly's Documentation on Conditionals][fastly-conditionals].
 
 The `healthcheck` block supports:
 
@@ -331,31 +246,6 @@ The `healthcheck` block supports:
 * `threshold` - (Optional) How many Healthchecks must succeed to be considered healthy. Default `3`.
 * `timeout` - (Optional) Timeout in milliseconds. Default `500`.
 * `window` - (Optional) The number of most recent Healthcheck queries to keep for this Healthcheck. Default `5`.
-
-The `request_setting` block allow you to customize Fastly's request handling, by
-defining behavior that should change based on a predefined `condition`:
-
-* `name` - (Required) Unique name to refer to this Request Setting.
-* `request_condition` - (Optional) Name of already defined `condition` to
-determine if this request setting should be applied.
-* `max_stale_age` - (Optional) How old an object is allowed to be to serve
-`stale-if-error` or `stale-while-revalidate`, in seconds.
-* `force_miss` - (Optional) Force a cache miss for the request. If specified,
-can be `true` or `false`.
-* `force_ssl` - (Optional) Forces the request to use SSL (Redirects a non-SSL request to SSL).
-* `action` - (Optional) Allows you to terminate request handling and immediately
-perform an action. When set it can be `lookup` or `pass` (Ignore the cache completely).
-* `bypass_busy_wait` - (Optional) Disable collapsed forwarding, so you don't wait
-for other objects to origin.
-* `hash_keys` - (Optional) Comma separated list of varnish request object fields
-that should be in the hash key.
-* `xff` - (Optional) X-Forwarded-For, should be `clear`, `leave`, `append`,
-`append_all`, or `overwrite`. Default `append`.
-* `timer_support` - (Optional) Injects the X-Timer info into the request for
-viewing origin fetch durations.
-* `geo_headers` - (Optional) Injects Fastly-Geo-Country, Fastly-Geo-City, and
-Fastly-Geo-Region into the request headers.
-* `default_host` - (Optional) Sets the host header.
 
 The `s3logging` block supports:
 
@@ -525,50 +415,6 @@ The `httpslogging` block supports:
 * `response_condition` - (Optional) The name of the `condition` to apply. If empty, always execute.
 
 
-The `response_object` block supports:
-
-* `name` - (Required) A unique name to identify this Response Object.
-* `status` - (Optional) The HTTP Status Code. Default `200`.
-* `response` - (Optional) The HTTP Response. Default `Ok`.
-* `content` - (Optional) The content to deliver for the response object.
-* `content_type` - (Optional) The MIME type of the content.
-* `request_condition` - (Optional) Name of already defined `condition` to be checked during the request phase. If the condition passes then this object will be delivered. This `condition` must be of type `REQUEST`.
-* `cache_condition` - (Optional) Name of already defined `condition` to check after we have retrieved an object. If the condition passes then deliver this Request Object instead. This `condition` must be of type `CACHE`. For detailed information about Conditionals,
-see [Fastly's Documentation on Conditionals][fastly-conditionals].
-
-The `snippet` block supports:
-
-* `name` - (Required) A name that is unique across "regular" and "dynamic" VCL Snippet configuration blocks.
-* `type` - (Required) The location in generated VCL where the snippet should be placed (can be one of `init`, `recv`, `hit`, `miss`, `pass`, `fetch`, `error`, `deliver`, `log` or `none`).
-* `content` (Required) The VCL code that specifies exactly what the snippet does.
-* `priority` - (Optional) Priority determines the ordering for multiple snippets. Lower numbers execute first.  Defaults to `100`.
-
-The `dynamicsnippet` block supports:
-
-* `name` - (Required) A name that is unique across "regular" and "dynamic" VCL Snippet configuration blocks.
-* `type` - (Required) The location in generated VCL where the snippet should be placed (can be one of `init`, `recv`, `hit`, `miss`, `pass`, `fetch`, `error`, `deliver`, `log` or `none`).
-* `priority` - (Optional) Priority determines the ordering for multiple snippets. Lower numbers execute first.  Defaults to `100`.
-
-The `vcl` block supports:
-
-* `name` - (Required) A unique name for this configuration block.
-* `content` - (Required) The custom VCL code to upload.
-* `main` - (Optional) If `true`, use this block as the main configuration. If
-`false`, use this block as an includable library. Only a single VCL block can be
-marked as the main block. Default is `false`.
-
-The `acl` block supports:
-
-* `name` - (Required) A unique name to identify this ACL.
-
-The `dictionary` block supports:
-
-* `name` - (Required) A unique name to identify this dictionary.
-* `write_only` - (Optional) If `true`, the dictionary is a private dictionary, and items are not readable in the UI or
-via API. Default is `false`. It is important to note that changing this attribute will delete and recreate the
-dictionary, discard the current items in the dictionary. Using a write-only/private dictionary should only be done if
-the items are managed outside of Terraform.
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following attributes are exported:
@@ -577,23 +423,7 @@ In addition to the arguments listed above, the following attributes are exported
 * `active_version` – The currently active version of your Fastly Service.
 * `cloned_version` - The latest cloned version by the provider. The value gets only set after running `terraform apply`.
 
-The `dynamicsnippet` block exports:
 
-* `snippet_id` - The ID of the dynamic snippet.
-
-The `acl` block exports:
-
-* `acl_id` - The ID of the ACL.
-
-The `dictionary` block exports:
-
-* `dictionary_id` - The ID of the dictionary.
-
-[fastly-s3]: https://docs.fastly.com/guides/integrations/amazon-s3
-[fastly-cname]: https://docs.fastly.com/guides/basic-setup/adding-cname-records
-[fastly-conditionals]: https://docs.fastly.com/guides/conditions/using-conditions
-[fastly-sumologic]: https://docs.fastly.com/api/logging#logging_sumologic
-[fastly-gcs]: https://docs.fastly.com/api/logging#logging_gcs
 
 ## Import
 
