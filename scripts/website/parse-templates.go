@@ -27,7 +27,7 @@ func main() {
 	tmpl := template.Must(template.ParseFiles(
 							tpgDir + "/website/docs/r/service_v1.html.markdown.tmpl",
 							tpgDir + "/website/docs/r/service_v2.html.markdown.tmpl",
-							tpgDir + "/website/docs/r/templates/biqquery_logging.markdown.tmpl",
+							tpgDir + "/website/docs/r/templates/_biqquery_logging.markdown.tmpl",
 							tpgDir + "/website/docs/r/templates/blobstorage_logging.markdown.tmpl",
 							tpgDir + "/website/docs/r/templates/gcs_logging.markdown.tmpl",
 							tpgDir + "/website/docs/r/templates/https_logging.markdown.tmpl",
