@@ -21,7 +21,7 @@ var condition 			= NewServiceCondition()
 var dictionary 			= NewServiceDictionary()
 var director 			= NewServiceDirector()
 var domain 				= NewServiceDomain()
-
+var dynamicsnippet 		= NewServiceDynamicSnippet()
 
 func resourceServiceV1() *schema.Resource {
 	return &schema.Resource{
@@ -129,7 +129,7 @@ func resourceServiceV1() *schema.Resource {
 
 			"vcl": vclSchema,
 			"snippet":        snippetSchema,
-			"dynamicsnippet": dynamicsnippetSchema,
+			dynamicsnippet.GetKey():     dynamicsnippet.GetSchema(),
 			acl.GetKey():         acl.GetSchema(),
 			dictionary.GetKey():         dictionary.GetSchema(),
 		},
@@ -209,7 +209,7 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		"request_setting",
 		cachesetting.GetKey(),
 		"snippet",
-		"dynamicsnippet",
+		dynamicsnippet.GetKey(),
 		"vcl",
 		acl.GetKey(),
 		dictionary.GetKey(),
@@ -452,8 +452,8 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 				return err
 			}
 		}
-		if d.HasChange("dynamicsnippet") {
-			if err := processDynamicSnippet(d, conn, latestVersion); err != nil {
+		if d.HasChange(dynamicsnippet.GetKey()) {
+			if err := dynamicsnippet.Process(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
@@ -643,7 +643,7 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 		if err := readSnippet(conn, d, s); err != nil {
 			return err
 		}
-		if err := readDynamicSnippet(conn, d, s); err != nil {
+		if err := dynamicsnippet.Read(d, s, conn); err != nil {
 			return err
 		}
 		if err := cachesetting.Read(d, s, conn); err != nil {
