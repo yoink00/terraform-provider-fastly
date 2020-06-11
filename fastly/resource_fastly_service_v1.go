@@ -29,6 +29,7 @@ var healthcheck 		= NewServiceHealthCheck()
 var httpslogging 		= NewServiceHTTPSLogging()
 var logentries	 		= NewServiceLogEntries()
 var papertrail	 		= NewServicePaperTrail()
+var requestsetting	 	= NewServiceRequestSetting()
 
 func resourceServiceV1() *schema.Resource {
 	return &schema.Resource{
@@ -132,7 +133,7 @@ func resourceServiceV1() *schema.Resource {
 			"logging_newrelic":      newrelicSchema,
 
 			"response_object": responseobjectSchema,
-			"request_setting": requestsettingSchema,
+			requestsetting.GetKey():    requestsetting.GetSchema(),
 
 			"vcl": vclSchema,
 			"snippet":        snippetSchema,
@@ -213,7 +214,7 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 		"logging_newrelic",
 		"response_object",
 		condition.GetKey(),
-		"request_setting",
+		requestsetting.GetKey(),
 		cachesetting.GetKey(),
 		"snippet",
 		dynamicsnippet.GetKey(),
@@ -445,7 +446,7 @@ func resourceServiceV1Update(d *schema.ResourceData, meta interface{}) error {
 			}
 		}
 		if d.HasChange("request_setting") {
-			if err := processRequestSetting(d, conn, latestVersion); err != nil {
+			if err := requestsetting.Process(d, latestVersion, conn); err != nil {
 				return err
 			}
 		}
@@ -638,7 +639,7 @@ func resourceServiceV1Read(d *schema.ResourceData, meta interface{}) error {
 		if err := condition.Read(d, s, conn); err != nil {
 			return err
 		}
-		if err := readRequestSetting(conn, d, s); err != nil {
+		if err := requestsetting.Read(d, s, conn); err != nil {
 			return err
 		}
 		if err := readVCL(conn, d, s); err != nil {
