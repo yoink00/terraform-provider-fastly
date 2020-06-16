@@ -1,12 +1,10 @@
 package fastly
 
 import (
-	"io/ioutil"
-)
-
-import (
 	"strings"
 	"testing"
+
+	"io/ioutil"
 )
 
 // pgpPublicKey returns a PEM encoded PGP public key suitable for testing.
