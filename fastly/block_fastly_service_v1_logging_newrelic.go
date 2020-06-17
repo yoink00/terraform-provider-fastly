@@ -156,55 +156,57 @@ func buildDeleteNewRelic(newrelicMap interface{}, serviceID string, serviceVersi
 	}
 }
 
-func (h *NewRelicServiceAttributeHandler) Register(s *schema.Resource) error {
+func (h *NewRelicServiceAttributeHandler) Register(s *schema.Resource, serviceType string) error {
+
+	var f = map[string]*schema.Schema{
+		// Required fields
+		"name": {
+			Type:        schema.TypeString,
+			Required:    true,
+			Description: "The unique name of the New Relic logging endpoint",
+		},
+		"token": {
+			Type:        schema.TypeString,
+			Required:    true,
+			Sensitive:   true,
+			Description: "The Insert API key from the Account page of your New Relic account.",
+		},
+	}
+
+	if serviceType == "vcl" {
+		// Optional fields
+		f["format"] = &schema.Schema{
+			Type:        schema.TypeString,
+			Optional:    true,
+			Description: "Apache style log formatting. Your log must produce valid JSON that New Relic Logs can ingest.",
+		}
+		f["format_version"] = &schema.Schema{
+			Type:         schema.TypeInt,
+			Optional:     true,
+			Default:      2,
+			Description:  "The version of the custom logging format used for the configured endpoint. Can be either `1` or `2`. (default: `2`).",
+			ValidateFunc: validateLoggingFormatVersion(),
+		}
+		f["placement"] = &schema.Schema{
+			Type:         schema.TypeString,
+			Optional:     true,
+			Description:  "Where in the generated VCL the logging call should be placed.",
+			ValidateFunc: validateLoggingPlacement(),
+		}
+		f["response_condition"] = &schema.Schema{
+			Type:        schema.TypeString,
+			Optional:    true,
+			Description: "The name of the condition to apply.",
+		}
+	}
+
 	s.Schema[h.GetKey()] = &schema.Schema{
 		Type:     schema.TypeSet,
 		Optional: true,
 		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				// Required fields
-				"name": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Description: "The unique name of the New Relic logging endpoint",
-				},
-
-				"token": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Sensitive:   true,
-					Description: "The Insert API key from the Account page of your New Relic account.",
-				},
-
-				// Optional fields
-				"format": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "Apache style log formatting. Your log must produce valid JSON that New Relic Logs can ingest.",
-				},
-
-				"format_version": {
-					Type:         schema.TypeInt,
-					Optional:     true,
-					Default:      2,
-					Description:  "The version of the custom logging format used for the configured endpoint. Can be either `1` or `2`. (default: `2`).",
-					ValidateFunc: validateLoggingFormatVersion(),
-				},
-
-				"placement": {
-					Type:         schema.TypeString,
-					Optional:     true,
-					Description:  "Where in the generated VCL the logging call should be placed.",
-					ValidateFunc: validateLoggingPlacement(),
-				},
-
-				"response_condition": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "The name of the condition to apply.",
-				},
-			},
+			Schema: f,
 		},
 	}
+
 	return nil
 }
