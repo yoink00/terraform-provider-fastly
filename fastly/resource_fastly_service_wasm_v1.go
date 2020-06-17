@@ -24,8 +24,9 @@ var wasmService = &BaseServiceDefinition{
 		NewServiceSplunk(),
 		NewServiceBlobStorageLogging(),
 		NewServiceHTTPSLogging(),
-		NewServiceElasticSearch(),
-		NewServiceFTP(),
+		NewServiceLoggingElasticSearch(),
+		NewServiceLoggingFTP(),
+		NewServiceLoggingSFTP(),
 	},
 }
 
