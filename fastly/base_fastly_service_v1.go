@@ -17,7 +17,7 @@ var fastlyNoServiceFoundErr = errors.New("No matching Fastly Service found")
 // resources from common components
 type ServiceAttributeDefinition interface {
 	// Register add the attribute to the resource schema
-	Register(d *schema.Resource) error
+	Register(d *schema.Resource, serviceType string) error
 
 	// Read refreshes the attribute state against the Fastly API
 	Read(d *schema.ResourceData, s *gofastly.ServiceDetail, conn *gofastly.Client) error
@@ -142,7 +142,7 @@ func resourceService(serviceDef ServiceDefinition) *schema.Resource {
 	}
 
 	for _, a := range serviceDef.GetAttributeHandler() {
-		a.Register(s) // Mutates s, adding handler-specific schema items to the list
+		a.Register(s, serviceDef.GetType()) // Mutates s, adding handler-specific schema items to the list
 	}
 
 	return s
