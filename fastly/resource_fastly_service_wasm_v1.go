@@ -27,6 +27,7 @@ var wasmService = &BaseServiceDefinition{
 		NewServiceLoggingElasticSearch(),
 		NewServiceLoggingFTP(),
 		NewServiceLoggingSFTP(),
+		NewServiceWASMPackage(),
 	},
 }
 
