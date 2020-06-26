@@ -58,6 +58,15 @@ func (h *BlobStorageLoggingServiceAttributeHandler) Process(d *schema.ResourceDa
 	// POST new/updated Blob Storage logging configurations
 	for _, bslRaw := range add {
 		bslf := bslRaw.(map[string]interface{})
+
+		var vla = NewVCLLoggingAttributes()
+		if h.GetServiceType() == ServiceTypeVCL {
+			vla.format = bslf["format"].(string)
+			vla.formatVersion = uint(bslf["format_version"].(int))
+			vla.placement = bslf["placement"].(string)
+			vla.responseCondition = bslf["response_condition"].(string)
+		}
+
 		opts := gofastly.CreateBlobStorageInput{
 			Service:           d.Id(),
 			Version:           latestVersion,
@@ -70,11 +79,11 @@ func (h *BlobStorageLoggingServiceAttributeHandler) Process(d *schema.ResourceDa
 			TimestampFormat:   bslf["timestamp_format"].(string),
 			GzipLevel:         uint(bslf["gzip_level"].(int)),
 			PublicKey:         bslf["public_key"].(string),
-			Format:            bslf["format"].(string),
-			FormatVersion:     uint(bslf["format_version"].(int)),
+			Format:            vla.format,
+			FormatVersion:     vla.formatVersion,
 			MessageType:       bslf["message_type"].(string),
-			Placement:         bslf["placement"].(string),
-			ResponseCondition: bslf["response_condition"].(string),
+			Placement:         vla.placement,
+			ResponseCondition: vla.responseCondition,
 		}
 
 		log.Printf("[DEBUG] Blob Storage logging create opts: %#v", opts)
@@ -106,6 +115,7 @@ func (h *BlobStorageLoggingServiceAttributeHandler) Read(d *schema.ResourceData,
 }
 
 func (h *BlobStorageLoggingServiceAttributeHandler) Register(s *schema.Resource, serviceType string) error {
+	h.serviceType = serviceType
 
 	var a = map[string]*schema.Schema{
 		// Required fields
